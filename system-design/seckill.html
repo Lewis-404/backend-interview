@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SD-01 秒杀系统设计 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="index.html" class="sd-link active">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">系统设计</a> &rsaquo; 秒杀系统</div>
+  <h1>⚡ 秒杀系统设计</h1>
+  <div class="meta">
+    <span>编号 SD-01</span>
+    <span>分类：高并发系统</span>
+    <span>难度：⭐⭐⭐⭐⭐</span>
+    <span>频率：必问</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">秒杀核心是"层层削峰"：CDN 静态化 → Nginx 限流（令牌桶）→ 网关鉴权+防刷（验证码 / IP 限频）→ Redis 预扣库存（Lua 原子操作）→ MQ 异步下单 → DB 最终扣减。关键：读写分离、缓存预热、限流熔断、降级预案。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「春运抢票」看懂秒杀系统层层削峰</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🏪</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：CDN = 遍布全国的代售点</strong><br><span style="color:var(--text-secondary)">春运前，12306 先把列车时刻表（商品详情页/静态资源）分发给全国代售点（CDN 节点）。旅客不用全挤到火车站（源站）——在家门口代售点就能看信息。90% 的流量在 CDN 层就被挡掉了。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">🚂</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">👮</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：Nginx = 售票厅门口的警察</strong><br><span style="color:var(--text-secondary)">每个售票厅门口站一个警察（Nginx），用警戒线（令牌桶限流 limit_req）控制进厅人数。每秒只放 10 个人进去，超出的全拦外面："对不起，售票厅满员，请稍后再试"（返回 429）。刷票脚本（恶意高频请求）在这里就被干掉一大半。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🎫</div>
+    <div>
+      <strong style="color:var(--accent)">场景3：Redis = 售票员看座位图</strong><br><span style="color:var(--text-secondary)">真正进了售票厅的人，售票员查的不是全国铁路数据库——他在看桌面上的<strong style="color:#fbbf24">实时座位图（Redis 预扣库存）</strong>。有没有票、扣一张，全在一条 Lua 脚本里原子完成：get → if > 0 → decr → 出票。一个人查完下一个人马上查，绝不超卖。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">🎟️</div>
+    <div>
+      <strong style="color:#a78bfa">场景4：MQ = 排号小票</strong><br><span style="color:var(--text-secondary)">售票员出了小票（Redis 扣成功），旅客拿着小票到旁边等（MQ 异步处理）。后台出票系统（DB）按自己的节奏一张张出票，不会被售票厅的人流冲垮。这就是削峰填谷——100 万人抢，DB 按自己能承受的速率慢慢处理。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-600">
+    <div class="scene-icon">🖨️</div>
+    <div>
+      <strong style="color:#34d399">场景5：DB = 最终出票打座位号</strong><br><span style="color:var(--text-secondary)">后台出票系统（DB）消费 MQ 消息，用 <strong style="color:#34d399">乐观锁（version 字段）</strong> 最终扣库存，打印带座位号的正式车票。如果发现座位已经没了（乐观锁失败），标记异常——定时对账任务会找出 Redis 和 DB 的差值，人工处理退款。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🏪</span>
+    <div class="metaphor-title">CDN代售点</div>
+    <div class="metaphor-desc">拦90%静态流量
+页面纯静态化</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">👮</span>
+    <div class="metaphor-title">Nginx警察</div>
+    <div class="metaphor-desc">令牌桶限流
+挡住恶意高频请求</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">🎫</span>
+    <div class="metaphor-title">Redis售票员</div>
+    <div class="metaphor-desc">Lua原子扣库存
+get→check→decr</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🎟️</span>
+    <div class="metaphor-title">MQ排队号</div>
+    <div class="metaphor-desc">削峰填谷
+DB按自己节奏消费</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>秒杀是高并发场景下，瞬间大量用户争抢极少量商品的电商活动。典型特征：瞬时 QPS 是平时的百倍以上、读多写少、热点商品集中。架构目标是<strong>保护后端服务不被冲垮</strong>，而非"承接所有流量"——大多数请求在到达 DB 前就应被拦截或排队。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>假设平时 1000 QPS 的系统，秒杀开始瞬间飙升到 100 万 QPS，如果请求直达 DB：① 连接池打满 → 所有请求超时；② 锁竞争（行锁）加剧 → 死锁；③ 缓存雪崩（大量 key 同时过期）→ DB 直接被压垮。必须用分层削峰策略把 100 万压到 DB 能承受的几千。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>三个核心：① <strong>超卖</strong>（卖出的数量超过库存）——是最严重的事故，必须通过 Redis Lua 原子操作 + DB 乐观锁双重保障；② <strong>性能</strong>（系统不能被瞬间流量打垮）——逐层限流、异步化、缓存预热；③ <strong>公平性</strong>（防刷/防脚本/防僵尸号）——验证码、IP 限频、用户风控。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>分层削峰架构（从外到内）：<br>① CDN 层：商品详情页、图片等静态资源推到 CDN，用户请求不经过源站；<br>② Nginx 层：limit_req 模块按 IP+URL 做令牌桶限流（如每秒 10 个请求），超出直接返回 429；<br>③ 网关层：验证码验证（滑块）+ IP 黑名单 + 用户风控（同一用户 ID 1 秒内只能请求一次）；<br>④ Redis 层：库存预热到 Redis，下单时执行 Lua 脚本原子检查+扣减（get stock → if stock>0 → decr stock → 返回结果），全部在单次原子操作中完成；<br>⑤ MQ 层：扣减成功的请求异步写入 RocketMQ，削峰填谷（DB 按自己的节奏消费）；<br>⑥ DB 层：消费 MQ 消息，执行最终扣减（UPDATE ... SET stock=stock-? WHERE stock>=? AND version=?），乐观锁防止超卖。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① Redis 单节点瓶颈：预扣库存集中在单个 Redis key，热点问题严重（可用本地缓存 + Redis 集群分片缓解）；② 数据一致性：Redis 扣减成功但 DB 写入失败时需对账补偿（定时任务扫描+人工介入）；③ 延迟问题：MQ 异步化后用户不会立即看到结果（前端需轮询或 WebSocket 推送最终结果）；④ 恶意流量难以完全防范：代理 IP 池、打码平台可绕过部分风控（需持续优化规则引擎）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① Redis 热点：用本地 Guava Cache/Caffeine 做 L1 缓存 + Redis 做 L2，热 key 在应用内存中提前判断库存是否耗尽；② 对账补偿：定时任务扫描 Redis 和 DB 的差值，发现不一致时人工审核退款或补发；③ 用户体验：前端下单后展示"排队中"，WebSocket 推送结果，超时自动退款；④ 风控升级：结合设备指纹 + 行为分析（鼠标轨迹 / 点击速度）识别机器人。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>淘宝双十一架构演进：早期用 Oracle + 存储过程硬扛；后来迁移到 MySQL + Redis；再后来自研 Tair（分布式缓存）+ RocketMQ + OceanBase。关键里程碑：全链路压测（提前找出瓶颈）、异地多活（多地同时秒杀）、单元化架构（用户按 ID 路由到固定单元）。中小公司落地最小方案：Nginx limit_req + Redis Lua + RocketMQ + MySQL，成本低效果好。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"秒杀的核心打法是层层削峰。最外层 CDN 挡住 90% 静态请求，Nginx 令牌桶限流挡住 9% 的恶意高频请求，网关做验证码和 IP 限频。真正进到业务的只有 1%，用 Redis Lua 脚本原子扣库存，扣成功的发 MQ 异步落 DB。超卖靠 Redis Lua + DB 乐观锁双重保障，数据一致性靠定时对账补偿。一句话：把 100 万 QPS 削到 DB 能扛的几千。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"加机器扩容就行了"（没考虑成本，也没解决超卖问题）</li>
+        <li>"用 Redis 做库存就行"（没说 Lua 原子操作，并发下会超卖）</li>
+        <li>"用消息队列异步下单"（只说了一个环节，缺少全链路视角）</li>
+        <li>"数据库加锁就解决了"（行锁在 10 万并发下直接死锁）</li>
+        <li>"前端按钮置灰防重复点击"（这只是前端防重，不能解决超卖）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"分层削峰是核心思想：CDN → Nginx → 网关 → Redis → MQ → DB，每层削减一个数量级"</li>
+        <li>"Redis 扣库存用 Lua 脚本保证原子性，单次操作完成：检查+扣减+返回"</li>
+        <li>"MQ 不是所有请求都进，只有 Redis 扣减成功的才发 MQ，保证了削峰效果"</li>
+        <li>"超卖用 Redis Lua（预扣）+ DB 乐观锁 version（最终扣减）双重保障"</li>
+        <li>"全链路压测 + 降级预案（关非核心服务、页面静态化）是上线前的必须"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">⚡ 秒杀系统</div>
+    <div class="branch">├─ <span class="arrow">→</span> 前端防刷</div>
+    <div class="leaf">│  ├─ 验证码（滑块/点选）—— 过滤简单脚本</div>
+    <div class="leaf">│  ├─ 按钮防重（点击后置灰 + 前端计数）</div>
+    <div class="leaf">│  └─ URL 动态化（秒杀链接每次不同，防提前构造请求）</div>
+    <div class="branch">├─ <span class="arrow">→</span> CDN 静态化</div>
+    <div class="leaf">│  ├─ 商品详情页纯静态（HTML/CSS/JS 推 CDN）</div>
+    <div class="leaf">│  ├─ 库存数量通过 Ajax 异步获取</div>
+    <div class="leaf">│  └─ 回源率极低（CDN 命中率 > 99%）</div>
+    <div class="branch">├─ <span class="arrow">→</span> Nginx 限流</div>
+    <div class="leaf">│  ├─ limit_req_zone：基于 IP 的令牌桶（rate=10r/s）</div>
+    <div class="leaf">│  ├─ limit_conn：限制单 IP 并发连接数</div>
+    <div class="leaf">│  └─ 超出限流返回 429 Too Many Requests</div>
+    <div class="branch">├─ <span class="arrow">→</span> Redis 预扣库存（核心）</div>
+    <div class="leaf">│  ├─ Lua 脚本：get stock → if stock>0 → decr → return OK</div>
+    <div class="leaf">│  ├─ 原子性保证：单线程执行，无并发问题</div>
+    <div class="leaf">│  └─ 库存预热：活动开始前将 DB 库存 load 到 Redis</div>
+    <div class="branch">├─ <span class="arrow">→</span> MQ 削峰（RocketMQ）</div>
+    <div class="leaf">│  ├─ 只有 Redis 扣减成功的请求才发 MQ</div>
+    <div class="leaf">│  ├─ 消费者按 DB 处理能力消费（多线程/批量）</div>
+    <div class="leaf">│  └─ 失败重试 + 死信队列兜底</div>
+    <div class="branch">├─ <span class="arrow">→</span> DB 扣减 + 对账</div>
+    <div class="leaf">│  ├─ 乐观锁：UPDATE SET stock=stock-1, version=version+1 WHERE id=? AND stock>=1 AND version=?</div>
+    <div class="leaf">│  ├─ 定时对账任务：比对 Redis 和 DB 的库存差异</div>
+    <div class="leaf">│  └─ 不一致时：人工介入 + 补偿退款</div>
+    <div class="branch">├─ <span class="arrow">→</span> 超卖解决方案</div>
+    <div class="leaf">│  ├─ Redis Lua 原子操作（第一道防线）</div>
+    <div class="leaf">│  ├─ DB 乐观锁 version 字段（第二道防线）</div>
+    <div class="leaf">│  └─ 兜底：对账发现超卖 → 人工退款 + 补发优惠券</div>
+    <div class="branch">├─ <span class="arrow">→</span> 热点隔离</div>
+    <div class="leaf">│  ├─ 热点商品单独部署（独立 Redis + 独立服务）</div>
+    <div class="leaf">│  ├─ 本地缓存预判：应用内存中维护"已售罄"状态</div>
+    <div class="leaf">│  └─ Redis 分片：按商品 ID 哈希分散到多个 Redis 节点</div>
+    <div class="branch">└─ <span class="arrow">→</span> 降级预案</div>
+    <div class="leaf">   ├─ 关停非核心服务（推荐/评论/物流查询）释放资源</div>
+    <div class="leaf">   ├─ 限流降级：达到阈值后返回"活动太火爆，请稍后再试"</div>
+    <div class="leaf">   └─ 熔断：下游服务超时率达到阈值 → 快速失败 → 保护上游</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"秒杀像春运抢票：CDN = 遍布全国的代售点（分流），Nginx = 售票厅门口的警察控制入场人数（限流），Redis = 售票员实时看座位图还剩多少票（预扣库存），MQ = 排号小票让你在旁边等（异步削峰），DB = 最终出票打座位号（持久化）。你不需要一波人全挤进售票厅——大部分在门外就被分流了。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 说出秒杀架构的 6 层削峰链路（CDN → Nginx → 网关 → Redis → MQ → DB）</li>
+    <li><input type="checkbox"> 解释 Redis Lua 脚本如何保证原子扣库存（get+check+decr 一次执行）</li>
+    <li><input type="checkbox"> 说明超卖的两重保障机制（Redis Lua + DB 乐观锁 version）</li>
+    <li><input type="checkbox"> 解释 Nginx limit_req 令牌桶限流的原理和配置</li>
+    <li><input type="checkbox"> 说明 RocketMQ 在秒杀中的作用（削峰填谷 + 异步解耦）</li>
+    <li><input type="checkbox"> 说出至少 3 种防刷手段（验证码 / IP 限频 / URL 动态化）</li>
+    <li><input type="checkbox"> 解释数据一致性问题及对账补偿方案</li>
+    <li><input type="checkbox"> 说明全链路压测和降级预案的必要性</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

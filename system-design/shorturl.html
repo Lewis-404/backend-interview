@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SD-05 短链系统设计 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="index.html" class="sd-link active">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">系统设计</a> &rsaquo; 短链系统</div>
+  <h1>🔗 短链系统设计</h1>
+  <div class="meta">
+    <span>编号 SD-05</span>
+    <span>分类：URL 服务</span>
+    <span>难度：⭐⭐⭐</span>
+    <span>频率：中高频</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">短链核心：长 URL → 哈希/发号 → 短码（Base62 编码）→ 302 重定向。关键：哈希冲突（MurmurHash + 布隆过滤器）、发号器（雪花/DB 自增）、缓存策略（热点缓存在 Redis）、301 永久 vs 302 临时、过期策略（TTL + 惰性删除）。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「图书馆索书号」看懂短链系统</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">📚</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：长URL = 书的详细位置</strong><br><span style="color:var(--text-secondary)">一本书的详细地址：三楼 A 区 12 排 5 架 3 层 —— 太长了，写在纸上都写不下。这就是长 URL："https://shop.example.com/product/detail?id=12345&utm_source=weibo&utm_medium=..."。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">📚</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🏷️</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：短码 = 索书号</strong><br><span style="color:var(--text-secondary)">图书馆给每本书一个<strong style="color:#fbbf24">索书号：I247.5/100</strong>（7 个字符），拿着这个号就能找到对应的详细位置（长 URL）。<strong style="color:#fbbf24">Base62 编码</strong>就是把数字 ID 转成 0-9a-zA-Z 的短码——就像 ISBN 号把长书名压缩成标准编号。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">👨‍💼</div>
+    <div>
+      <strong style="color:#a78bfa">场景3：302 = 管理员告诉你去哪</strong><br><span style="color:var(--text-secondary)">你拿着索书号问管理员，管理员查了电脑说："三楼 A 区 12 排 5 架 3 层"（302 重定向），你自己走过去拿书。为什么用 302 不用 301（永久）？因为管理员要统计"这本书今天被借了几次"（访问统计），还要检查"这本书还在不在馆内"（过期检测）。301 会让读者下次直接去位置，不看管理员了。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">🔢</div>
+    <div>
+      <strong style="color:#34d399">场景4：Base62 = 索书号编码规则</strong><br><span style="color:var(--text-secondary)">图书馆索书号用字母+数字，短链用 <strong style="color:#34d399">Base62：0-9, a-z, A-Z = 62 个字符</strong>。7 位索书号能表示 62^7 = <strong style="color:#fbbf24">3.5 万亿</strong> 本书！对比：纯数字 7 位只能表示 1000 万本。这就是为什么短链可以只用 7 个字符——编码空间足够用几十年。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">📚</span>
+    <div class="metaphor-title">长URL</div>
+    <div class="metaphor-desc">书的详细位置
+又长又难记</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">🏷️</span>
+    <div class="metaphor-title">短码/Base62</div>
+    <div class="metaphor-desc">索书号7位
+62^7=3.5万亿</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">👨‍💼</span>
+    <div class="metaphor-title">302重定向</div>
+    <div class="metaphor-desc">管理员告诉你位置
+每次可统计+检测</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🔢</span>
+    <div class="metaphor-title">生成方案</div>
+    <div class="metaphor-desc">哈希法vs发号器
+冲突vs可预测</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>短链服务将长的 URL（可能几百个字符）压缩为短的唯一标识符（6-8 个字符），用户访问短链时服务端 302 重定向到原始长 URL。典型产品：t.cn（新浪微博）、bit.ly、TinyURL。核心需求：<strong>短码唯一</strong>（不能两个 URL 映射到同一个短码）、<strong>快速重定向</strong>（毫秒级）、<strong>高并发</strong>（每天数十亿次访问）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>① 字符限制：微博 140 字限制，SMS 短信 70 字，长 URL 会占满全部空间；② 美观与信任：短链比一长串参数更美观，也更容易记；③ 统计追踪：短链可以做点击统计、来源分析、防钓鱼检测（预览真实 URL）；④ 二维码友好：短链生成的二维码更简单，识别更快。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>三个核心：① <strong>短码唯一性</strong>——不同长 URL 不能生成相同的短码（哈希冲突处理）；② <strong>高并发重定向</strong>——访问短链时毫秒级返回 302，热点 URL 需要缓存；③ <strong>大规模存储</strong>——每天可能生成上亿短链，存储和查询需要高效设计（DB 分片 + 布隆过滤器）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p><strong>生成短码</strong>两种方案：<br>① <strong>哈希法</strong>：长 URL 经 MurmurHash 生成 64 位哈希值，取前/后 42 位（2^42 = 4 万亿）用 Base62 编码为 7 位字符。冲突处理：检测到冲突后在 URL 末尾追加随机串重新哈希。<br>② <strong>发号器法</strong>：自增 ID（雪花算法/DB auto_increment），将 10 进制 ID 转 Base62 编码。如 ID=12345 → Base62("dnh")。优点是无冲突，缺点是 ID 可预测（可加密或随机化）。<br><br><strong>访问流程</strong>：浏览器请求 short.url/abc123 → 服务端查 Redis 缓存 → 缓存命中返回 302 + Location → 缓存未命中查 DB → 更新缓存 → 302 重定向。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① 哈希冲突：不同 URL 可能产生相同哈希（需冲突处理 + 布隆过滤器预判）；② 安全风险：短链隐藏了真实 URL，可能被用于钓鱼/恶意网站（需要安全检测 + 预览页）；③ 存储增长：每天亿级短链，存储随时间线性增长（需要过期 + 归档策略）；④ 热点问题：热门短链（如微博热搜）瞬时数百万 QPS，单点 Redis 不够（需要 CDN + 本地缓存）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① 冲突处理：用布隆过滤器快速判断短码是否存在，存在则重试（长 URL + 随机盐 → 再哈希）；② 安全：创建短链时调安全 API 检测目标 URL，发现恶意链接拒绝生成；③ 过期清理：设置 TTL（如 30 天未访问），定时任务 + 惰性删除（访问时检查是否过期）；④ 热点高并发：CDN 边缘节点缓存 302 响应（Location 头），源站压力降低 99%。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>TinyURL 方案：MySQL 自增 ID + Base62 编码，简单可靠。新浪微博 t.cn：发号器 + Base62 + Redis 缓存 + CDN 重定向。最小可行方案：Go HTTP Server + MySQL（短码 → 长 URL 映射表）+ Redis 缓存热点 + 302 响应。生产优化：CDN 缓存 302 重定向（Cache-Control: public, max-age=86400），只有首次访问到源站。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"短链 = 长 URL → 哈希/发号 → Base62 编码 → 短码 → 302 重定向。生成有两种：哈希法用 MurmurHash 产生 64 位哈希取 42 位 Base62 编码成 7 位字符，冲突了加随机盐重试；发号器法用自增 ID 转 Base62，无冲突。访问时：先查 Redis 缓存，命中直接 302，未命中查 MySQL 再缓存。热点 URL 用 CDN 缓存 302 响应，防钓鱼用安全检测 API，过期链接用 TTL + 定时清理。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"用 MD5 取前 6 位就行"（MD5 碰撞 + 只取 6 位字符集小，冲突概率极高）</li>
+        <li>"每次查 MySQL"（热点 URL 几十万 QPS 会打挂 DB，必须加缓存）</li>
+        <li>"301 永久重定向"（浏览器会缓存 301，后续访问不再经过服务端，无法统计）</li>
+        <li>"用 Redis 随机生成 6 位字符串"（没有唯一性保证，可能重复覆盖）</li>
+        <li>"短码越长越好"（7 位 Base62 = 3.5 万亿组合，完全够用，没必要更长）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"用 MurmurHash（速度快分布好）或发号器（自增 ID → Base62），冲突率极低"</li>
+        <li>"302 临时重定向，每次请求都经过服务端，可以做访问统计和过期检查"</li>
+        <li>"Redis 缓存热点 URL 映射，CDN 缓存 302 响应，源站只需处理首次请求"</li>
+        <li>"Base62（0-9a-zA-Z）= 62 个字符，7 位 = 62^7 = 3.5 万亿，足够用几十年"</li>
+        <li>"短链过期：TTL + 定时任务 + 惰性删除，访问时检查是否过期，过期返回 410"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">🔗 短链系统</div>
+    <div class="branch">├─ <span class="arrow">→</span> 短码生成方案</div>
+    <div class="leaf">│  ├─ 哈希法：长 URL → MurmurHash(64bit) → 取 42bit → Base62 → 7 位短码</div>
+    <div class="leaf">│  ├─ 发号器法：雪花 ID / DB 自增 → 十进制转 Base62 → 无冲突</div>
+    <div class="leaf">│  └─ 混合法：发号器生成 ID → 加盐哈希打乱 → Base62（既唯一又不可预测）</div>
+    <div class="branch">├─ <span class="arrow">→</span> Base62 编码详解</div>
+    <div class="leaf">│  ├─ 字符集：0-9, a-z, A-Z = 62 个字符</div>
+    <div class="leaf">│  ├─ 7 位 = 62^7 = 3.52 × 10^12 ≈ 3.5 万亿种组合</div>
+    <div class="leaf">│  └─ 转换：十进制 ID 不断对 62 取模，余数映射字符，商继续除</div>
+    <div class="branch">├─ <span class="arrow">→</span> 哈希冲突处理</div>
+    <div class="leaf">│  ├─ MurmurHash 碰撞率约 1/2^64，几乎可忽略但仍需处理</div>
+    <div class="leaf">│  ├─ 布隆过滤器：快速判断短码是否已被占用（可能有假阳性）</div>
+    <div class="leaf">│  └─ 冲突时：长 URL + 随机盐 → 再哈希 → 重试直到不冲突（概率极低，< 3 次）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 301 vs 302</div>
+    <div class="leaf">│  ├─ 301（永久）：浏览器缓存重定向 URL，后续直接跳转不过服务端</div>
+    <div class="leaf">│  ├─ 302（临时）：每次请求都到服务端，可统计点击、检查过期</div>
+    <div class="leaf">│  └─ 短链场景用 302：需要统计访问次数 + 动态更新目标 URL + 过期检测</div>
+    <div class="branch">├─ <span class="arrow">→</span> 缓存策略</div>
+    <div class="leaf">│  ├─ 热点预取：统计 Top 1000 高频短链，提前加载到 Redis</div>
+    <div class="leaf">│  ├─ CDN 边缘缓存：302 响应缓存在 CDN 节点，命中的直接返回</div>
+    <div class="leaf">│  └─ 本地缓存：服务内存 Guava Cache 缓存最近 1000 个热门映射</div>
+    <div class="branch">├─ <span class="arrow">→</span> 高并发重定向优化</div>
+    <div class="leaf">│  ├─ CDN 层缓存 302（Cache-Control: public, max-age=86400）</div>
+    <div class="leaf">│  ├─ Nginx 层直接返回（Lua 脚本读 Redis 后构造 302）</div>
+    <div class="leaf">│  └─ 应用层：Go HTTP Server 极轻量处理（只读 Redis + 写 Header）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 过期清理</div>
+    <div class="leaf">│  ├─ 创建时设置 TTL（如 30 天未访问即过期）</div>
+    <div class="leaf">│  ├─ 惰性删除：访问时检查 created_at，过期返回 410 Gone</div>
+    <div class="leaf">│  └─ 定时任务：每天凌晨扫描过期记录 → DELETE FROM short_urls</div>
+    <div class="branch">└─ <span class="arrow">→</span> 域名选择</div>
+    <div class="leaf">   ├─ 短域名：如 t.cn / bit.ly，域名越短短链越短</div>
+    <div class="leaf">   ├─ 独立域名：避免与主站 cookie 混杂（安全隔离）</div>
+    <div class="leaf">   └─ 多域名分片：按短码首字符路由到不同域名，分散热点</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"短链 = 图书馆索书号系统：长 URL = 书的详细存放位置（三楼 A 区 12 排 5 架 3 层），短码 = 索书号（I247.5/100），302 = 管理员根据索书号告诉你去哪个位置拿书。哈希法 = 给每本书按内容算一个编号（可能会重复），发号器法 = 新书入库挨个发编号（不会重复），Base62 = 把纯数字编号变成字母数字混合的短编号。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 对比哈希法和发号器法的优缺点（冲突 vs 可预测性）</li>
+    <li><input type="checkbox"> 解释 Base62 编码原理（62 个字符，7 位 = 3.5 万亿组合）</li>
+    <li><input type="checkbox"> 说明 301 vs 302 的差异及短链场景为何选 302</li>
+    <li><input type="checkbox"> 解释哈希冲突的检测和处理（布隆过滤器 + 加盐重试）</li>
+    <li><input type="checkbox"> 设计缓存策略（Redis 热点 + CDN 边缘 + 本地内存三级缓存）</li>
+    <li><input type="checkbox"> 说明过期清理方案（TTL + 惰性删除 + 定时扫描）</li>
+    <li><input type="checkbox"> 解释高并发场景的优化（CDN 缓存 302 → Nginx Lua → 应用层）</li>
+    <li><input type="checkbox"> 说出安全防护措施（URL 安全检测 + 预览页 + 域名隔离）</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

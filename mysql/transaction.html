@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>事务ACID与隔离级别 — MySQL面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="index.html" class="mysql-link active">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb">
+    <a href="../index.html">首页</a> &raquo;
+    <a href="index.html">MySQL</a> &raquo;
+    <span>#03</span>
+  </div>
+  <h1>事务ACID与隔离级别</h1>
+  <span class="q-number">TOP 03 ⭐⭐⭐⭐⭐</span>
+</header>
+
+<div class="summary-box anim-scale">
+  <p class="big-conclusion">事务四大特性：原子性(Undo Log回滚)、一致性(约束+锁保证)、隔离性(MVCC+锁)、持久性(Redo Log+Doublewrite)；四种隔离级别：读未提交/读已提交/可重复读(MySQL默认)/串行化</p>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 快递配送</div>
+  <div class="story-title">一个快递包裹的旅程，就是 ACID 的完美诠释</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">📦</div>
+    <div><strong style="color:var(--accent)">场景：原子性 = 包裹不能送一半</strong><br><span style="color:var(--text-secondary)">快递要么完整送到家，要么原路退回——绝不会"放门口就走了但门锁着"。事务也一样：要么全部成功，要么全部回滚，不存在"改了一半"的状态</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">📍</div>
+    <div><strong style="color:var(--accent)">场景：一致性 = 不能送错地址</strong><br><span style="color:var(--text-secondary)">收件地址、收件人、电话必须对得上——业务规则不能违反。就像转账：转出100+转入100=总额不变，打破这个规则就是送错地址</span></div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🚚</div>
+    <div><strong style="color:var(--accent)">场景：隔离性 = 快递员互不干扰</strong><br><span style="color:var(--text-secondary)">三个快递员同时送同一栋楼，各送各的包裹，不会把别人的快递塞到你柜子里。事务隔离保证并发操作互不干扰</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-600">
+    <div class="scene-icon">✍️</div>
+    <div><strong style="color:var(--accent)">场景：持久性 = 签收记录永不丢失</strong><br><span style="color:var(--text-secondary)">签收底单一旦生成就永久保存，即使快递站断电，底单还在——Redo Log就像签收记录，crash后凭底单恢复</span></div>
+  </div>
+</section>
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100"><span class="metaphor-emoji">✅</span><div class="metaphor-title">原子性 = 全或不送</div><div class="metaphor-desc">不能半途而废，要么完整送达要么回退</div></div>
+  <div class="metaphor-card anim-fade-up delay-200"><span class="metaphor-emoji">🎯</span><div class="metaphor-title">一致性 = 不错</div><div class="metaphor-desc">送对地址、送对人，业务规则必须满足</div></div>
+  <div class="metaphor-card anim-fade-up delay-300"><span class="metaphor-emoji">🚧</span><div class="metaphor-title">隔离性 = 不干扰</div><div class="metaphor-desc">各送各的，互不越界，并发安全</div></div>
+  <div class="metaphor-card anim-fade-up delay-400"><span class="metaphor-emoji">📝</span><div class="metaphor-title">持久性 = 不丢</div><div class="metaphor-desc">签收底单永久保存，断电也能恢复</div></div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step"><h4>Step 1 — 是什么</h4><p>事务是一组要么全部成功要么全部失败的操作。ACID是衡量事务可靠性的四个维度：原子性、一致性、隔离性、持久性</p></div>
+    <div class="step"><h4>Step 2 — 为什么</h4><p>数据库承载核心业务数据，没有事务保障，转账可能扣了钱没加上、并发操作导致数据错乱。ACID是数据正确性的基石</p></div>
+    <div class="step"><h4>Step 3 — 解决的核心问题</h4><p>原子性——避免部分成功；一致性——避免数据逻辑矛盾；隔离性——避免并发互相干扰；持久性——避免已提交数据丢失</p></div>
+    <div class="step"><h4>Step 4 — 核心原理</h4><p>A:Undo Log记录修改前的值，失败时回滚。C:约束(主键/唯一/外键/CHECK)+锁+MVCC共同维护。I:MVCC(快照读)+锁(当前读)实现隔离级别。D:Redo Log WAL+Doublewrite Buffer保证crash后恢复</p></div>
+    <div class="step"><h4>Step 5 — 缺点/局限</h4><p>隔离级别越高并发越低。串行化基本无法用于生产。RR下仍有写偏斜问题。长事务导致Undo Log堆积、锁持有时间长</p></div>
+    <div class="step"><h4>Step 6 — 如何解决</h4><p>选对隔离级别：大多数场景RR足矣；金融类需要串行化的用乐观锁/分布式锁补偿。控制事务粒度，避免长事务</p></div>
+    <div class="step"><h4>Step 7 — 实际落地</h4><p>MySQL默认RR，通过SET SESSION TRANSACTION ISOLATION LEVEL调整。查看：SELECT @@transaction_isolation。监控：长事务(>5s)、锁等待、死锁</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">ACID是事务的四项铁律。A-原子性靠Undo Log实现，所有修改先记Undo，失败就回滚。I-隔离性靠MVCC和锁：RR下第一次SELECT创建ReadView，之后都用这个快照，看不到别的事务提交。D-持久性靠Redo Log的WAL机制：先写日志再写磁盘，crash后重放Redo恢复。四种隔离级别是并发性和正确性的权衡：读未提交→脏读；读已提交→不可重复读(解决脏读)；可重复读→幻读(MySQL用间隙锁解决)；串行化→所有事务串行执行。</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before"><h4>❌ 错误表达</h4>
+      <ul>
+        <li>"一致性就是数据没丢" — 一致性是业务规则正确(correctness)，不是持久性(durability)</li>
+        <li>"MySQL默认RC" — 错，默认是RR</li>
+        <li>"串行化就是加表锁" — InnoDB串行化用的是行锁+共享锁转串行，不是表锁</li>
+        <li>"幻读和不可重复读是一回事" — 不可重复读是同一行数据变了(update)，幻读是多了一行(insert)</li>
+      </ul></div>
+    <div class="col after"><h4>✅ 正确表达</h4>
+      <ul>
+        <li>"<strong>原子性=Undo Log</strong>，<strong>持久性=Redo Log</strong>，<strong>隔离性=MVCC+锁</strong>，<strong>一致性=A+I+D+约束共同保证</strong>"</li>
+        <li>"<strong>不可重复读</strong>：同一事务两次读到同一行数据不同(UPDATE导致)；<strong>幻读</strong>：同一条件两次查询行数不同(INSERT导致)"</li>
+        <li>"MySQL RR通过<strong>Next-Key Lock</strong>解决大部分幻读，但不是全部（如SELECT无WHERE不锁全表）"</li>
+        <li>"隔离级别是<strong>并发性能与数据正确性的trade-off</strong>，不是越高越好"</li>
+      </ul></div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">ACID + 隔离级别</div>
+    <div class="branch">├─ <span class="arrow">→</span> 原子性怎么实现？</div>
+    <div class="leaf">│  └─ Undo Log：每条修改前记录旧值→失败时逆向回滚。没有Undo Log的话，crash后无法撤销已写磁盘的部分修改</div>
+    <div class="branch">├─ <span class="arrow">→</span> 一致性到底是什么？</div>
+    <div class="leaf">│  └─ 数据从一种正确状态变到另一种正确状态。由A+I+D共同保证，+外键/约束/触发器。不是独立实现，是AID的结果</div>
+    <div class="branch">├─ <span class="arrow">→</span> 隔离性四种级别区别？</div>
+    <div class="leaf">│  └─ RU:啥也不防；RC:防脏读；RR:防脏读+不可重复读；Serializable:全防。本质是"更严格的ReadView规则+更多的锁"</div>
+    <div class="branch">├─ <span class="arrow">→</span> 持久性Redo Log怎么工作？</div>
+    <div class="leaf">│  └─ WAL：修改先写Redo Log Buffer→刷到Redo Log文件→再异步刷数据页。Crash后重放Redo Log到checkpoint之后的部分</div>
+    <div class="branch">├─ <span class="arrow">→</span> 脏读/不可重复读/幻读怎么区分？</div>
+    <div class="leaf">│  └─ 脏读=读到未提交数据；不可重复读=同一行UPDATE前后不同；幻读=INSERT/DELETE导致结果集行数不同</div>
+    <div class="branch">├─ <span class="arrow">→</span> MySQL RR 怎么解决幻读？</div>
+    <div class="leaf">│  └─ Next-Key Lock(行锁+间隙锁)：WHERE id>5锁住[5,∞)的间隙，阻止其他事务INSERT。但纯SELECT(快照读)不锁，要到当前读才锁</div>
+    <div class="branch">└─ <span class="arrow">→</span> Doublewrite Buffer 干嘛的？</div>
+    <div class="leaf">   └─ 防"部分写失效"：16KB页写到一半断电。Doublewrite先顺序写(快)到共享表空间→再随机写数据文件→断电后从共享表空间恢复完整页</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">ACID像<strong>快递</strong>：<strong>原子性</strong>=包裹不能只送一半，"要么全送到要么退回"；<strong>一致性</strong>=不能送错地址，"收货地址→逻辑规则"；<strong>隔离性</strong>=不同快递互不干扰，"别把隔壁楼的包裹塞我柜子里"；<strong>持久性</strong>=签收记录永久保存，"你说送到了得有签收底单"</div>
+  <div class="hook-text" style="margin-top:0.8rem;font-size:0.9rem;opacity:0.85">A — Undo Log回滚 | I — MVCC+锁 | D — Redo Log+Doublewrite | RR — MySQL默认隔离级别</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+<li><input type="checkbox"> 能用一个词说清每个字母的含义和对应实现机制</li>
+    <li><input type="checkbox"> 能画出四种隔离级别和三种并发问题（脏读/不可重复读/幻读）的矩阵</li>
+    <li><input type="checkbox"> 能解释为什么一致性是"结果"而不是独立实现</li>
+    <li><input type="checkbox"> 能说明WAL(Write-Ahead Logging)的工作流程和必要性</li>
+    <li><input type="checkbox"> 能举例说明幻读的具体场景（A查→B插→A再查）</li>
+    <li><input type="checkbox"> 能回答"MySQL RR真的完全解决了幻读吗"</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

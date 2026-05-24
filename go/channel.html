@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GO-02 Channel 底层原理与使用场景 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="index.html" class="go-link active">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">Go</a> &rsaquo; Channel</div>
+  <h1>📡 Channel 底层原理与使用场景</h1>
+  <div class="meta">
+    <span>编号 GO-02</span>
+    <span>分类：并发编程</span>
+    <span>难度：⭐⭐⭐⭐</span>
+    <span>频率：必问</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Channel 是 Go 中 goroutine 间通信的管道，底层 hchan 结构（环形队列 + mutex + sendq/recvq），遵循 CSP 模型"通过通信共享内存"，实现 goroutine 间安全高效的数据传递与同步。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 厨房出餐的故事</div>
+  <div class="story-title">用「餐厅出餐」看懂 Channel 全部概念</div>
+
+  <!-- 场景1：无缓冲 = 手递手 -->
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🤝</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：无缓冲 Channel = 手递手传菜</strong><br>
+      <span style="color:var(--text-secondary)">厨师做好一道菜，必须服务员正好站在窗口接，菜才能传过去。厨师举着盘子等（阻塞），服务员不来厨师没法做下一道。服务员来了但厨师还没做好？服务员在窗口干等。这就是 <strong style="color:#fbbf24">make(chan T)</strong>——"我好了你必须在"。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">🍳</div>
+  </div>
+
+  <!-- 场景2：有缓冲 = 传送带 -->
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🏭</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：有缓冲 Channel = 传送带出餐</strong><br>
+      <span style="color:var(--text-secondary)">厨房到前台有一条能放 <strong style="color:#fbbf24">N 盘菜</strong> 的传送带。厨师做好就放上去，服务员有空就来取。传送带满了？厨师端着菜等（发送阻塞）。传送带空了？服务员干等（接收阻塞）。这就是 <strong style="color:#fbbf24">make(chan T, N)</strong>。</span>
+    </div>
+  </div>
+
+  <!-- 场景2.5：传送带动画 -->
+  <div style="background:var(--bg);border-radius:var(--radius-sm);padding:16px;text-align:center;overflow:hidden;position:relative;height:60px">
+    <div style="position:absolute;left:10px;top:20px;font-size:24px">👨‍🍳</div>
+    <div style="position:absolute;right:10px;top:20px;font-size:24px">👩‍💼</div>
+    <span class="anim-conveyor-l" style="position:absolute;top:24px;font-size:18px">🍝</span>
+    <span class="anim-conveyor-l" style="position:absolute;top:24px;font-size:18px;animation-delay:1s">🥗</span>
+    <span class="anim-conveyor-l" style="position:absolute;top:24px;font-size:18px;animation-delay:2s">🍰</span>
+    <div style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--text-muted)">sendx → 盘子排好队，recvx → 服务员按顺序取</div>
+  </div>
+
+  <!-- 场景3：关闭 = 贴封条 -->
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🚫</div>
+    <div>
+      <strong style="color:#f87171">场景3：close(ch) = 贴封条</strong><br>
+      <span style="color:var(--text-secondary)">餐厅打烊了，传送带上还剩的菜（buf中残留数据）服务员可以继续取完，但不能再往上放新菜了（<span style="color:#f87171">往已关闭 channel 发送 → panic！</span>）。重复贴封条？封条只能贴一次（<span style="color:#f87171">重复 close → panic！</span>）。没传送带硬贴？那是 nil channel（<span style="color:#f87171">close(nil) → panic！</span>）。</span>
+    </div>
+  </div>
+
+  <!-- 场景4：select -->
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">📋</div>
+    <div>
+      <strong style="color:#a78bfa">场景4：select = 大堂经理</strong><br>
+      <span style="color:var(--text-secondary)">经理同时盯着好几条传送带（多个 channel），哪条有活就处理哪条。多条同时有货？<strong style="color:#a78bfa">随机选一条</strong>——防止某条传送带永远被插队（避免饥饿）。加个 <strong style="color:#a78bfa">default</strong> 分支就是"都没货我先去忙别的（非阻塞）"。</span>
+    </div>
+  </div>
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji" style="animation-delay:0s">🤝</span>
+    <div class="metaphor-title">无缓冲 Channel</div>
+    <div class="metaphor-desc">手递手传菜<br>双方必须同时在场</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji" style="animation-delay:0.3s">🏭</span>
+    <div class="metaphor-title">有缓冲 Channel</div>
+    <div class="metaphor-desc">传送带 N 个托盘位<br>放满了厨师才等</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji" style="animation-delay:0.6s">🔒</span>
+    <div class="metaphor-title">hchan.lock</div>
+    <div class="metaphor-desc">出餐窗口的闸门<br>每次只能一个人操作</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji" style="animation-delay:0.9s">📋</span>
+    <div class="metaphor-title">select</div>
+    <div class="metaphor-desc">大堂经理盯多条传送带<br>哪条有活处理哪条</div>
+  </div>
+</div>
+
+<!-- ====== 一次 send 的动态流程图 ====== -->
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px">
+  <h3 style="font-size:16px;margin-bottom:20px;text-align:center">📐 ch &lt;- data 的一趟旅程</h3>
+  <div class="process-flow">
+    <div class="process-step anim-fade-up delay-100">
+      <span class="step-icon">🔐</span>
+      lock(&ch.lock)
+    </div>
+    <div class="process-arrow anim-fade-up delay-200">→</div>
+    <div class="process-step anim-fade-up delay-300">
+      <span class="step-icon">🔍</span>
+      recvq<br>有人等？
+    </div>
+    <div class="process-arrow anim-fade-up delay-400">→</div>
+    <div class="process-step anim-fade-up delay-500" style="border-color:#34d399">
+      <span class="step-icon">✅</span>
+      直接拷贝<br>唤醒它
+    </div>
+  </div>
+  <div style="text-align:center;color:var(--text-muted);font-size:13px;margin:12px 0">⬇️ recvq 没人等？走下面 ⬇️</div>
+  <div class="process-flow">
+    <div class="process-step anim-fade-up delay-100">
+      <span class="step-icon">📦</span>
+      buf<br>有空位？
+    </div>
+    <div class="process-arrow">→</div>
+    <div class="process-step" style="border-color:#34d399">
+      <span class="step-icon">✅</span>
+      写入 buf[sendx]<br>sendx++, qcount++
+    </div>
+  </div>
+  <div style="text-align:center;color:var(--text-muted);font-size:13px;margin:12px 0">⬇️ buf 也满了？走最后一条路 ⬇️</div>
+  <div class="process-flow">
+    <div class="process-step" style="border-color:#f87171">
+      <span class="step-icon">😴</span>
+      挂到 sendq<br>G 阻塞休眠
+    </div>
+    <div class="process-arrow">→</div>
+    <div class="process-step" style="border-color:var(--accent);animation:highlightPulse 2s ease-in-out infinite">
+      <span class="step-icon">⏰</span>
+      等 recvq 的人<br>来唤醒自己
+    </div>
+  </div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>Channel 是 Go 内置的一等公民类型，用于 goroutine 之间的通信和同步。有 3 种形态：<code>chan T</code>（双向）、<code>chan&lt;- T</code>（只发）、<code>&lt;-chan T</code>（只收）。底层是 runtime 的 hchan 结构体，包含环形队列 buf、互斥锁 lock、发送/接收等待队列。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>遵循 CSP（Communicating Sequential Processes）模型，核心思想："不要通过共享内存来通信，而要通过通信来共享内存"。相比传统锁同步，channel 让数据流向更清晰、并发逻辑更易推理、死锁风险更低。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>① goroutine 间数据传递的安全性（channel 内部有锁保护）；② goroutine 间的同步（无缓冲 channel 天然同步阻塞）；③ 替代复杂的锁+条件变量组合，用 select 实现多路复用。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理（hchan 结构）</h4>
+      <p style="margin-bottom:16px;color:var(--text-secondary);font-size:14px">hchan 是 channel 的运行时代表，位于 <code style="background:rgba(56,189,248,0.15);padding:1px 6px;border-radius:4px">runtime/chan.go</code>。结构如下：</p>
+
+      <!-- hchan 结构图 -->
+      <div style="max-width:680px;margin:0 auto 20px;font-family:var(--font-mono);font-size:13px">
+
+        <!-- 外层 hchan 容器 -->
+        <div style="border:2px solid var(--accent);border-radius:var(--radius);overflow:hidden;background:var(--bg-card)">
+
+          <!-- 标题栏 -->
+          <div style="background:rgba(56,189,248,0.15);padding:10px 16px;text-align:center;font-weight:700;font-size:15px;color:var(--accent);border-bottom:1px solid var(--border)">
+            struct <span style="color:var(--go-blue);background:rgba(0,173,216,0.15);padding:1px 8px;border-radius:4px">hchan</span>
+          </div>
+
+          <!-- 字段行 -->
+          <div style="display:flex;flex-direction:column">
+
+            <!-- lock -->
+            <div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border)">
+              <div style="min-width:100px;background:rgba(52,211,153,0.12);padding:10px 14px;color:#34d399;font-weight:600;display:flex;align-items:center">🔒 lock</div>
+              <div style="flex:1;padding:10px 14px;color:var(--accent)"><span style="color:var(--text-muted)">mutex</span></div>
+              <div style="min-width:180px;padding:10px 14px;color:var(--text-muted);font-size:12px;display:flex;align-items:center;border-left:1px solid var(--border)">保护整个 hchan 的互斥锁</div>
+            </div>
+
+            <!-- buf 指针 -->
+            <div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border)">
+              <div style="min-width:100px;background:rgba(56,189,248,0.12);padding:10px 14px;color:var(--accent);font-weight:600;display:flex;align-items:center">↗️ buf</div>
+              <div style="flex:1;padding:10px 14px;color:var(--accent)"><span style="color:var(--text-muted)">unsafe.Pointer</span></div>
+              <div style="min-width:180px;padding:10px 14px;color:var(--text-muted);font-size:12px;display:flex;align-items:center;border-left:1px solid var(--border)">指向堆上的环形数组</div>
+            </div>
+
+            <!-- 环形队列参数 -->
+            <div style="display:flex;border-bottom:1px solid var(--border);background:rgba(56,189,248,0.04)">
+              <div style="min-width:100px;padding:8px 14px;color:var(--text-secondary);font-size:12px;display:flex;align-items:center">├ dataqsiz</div>
+              <div style="flex:1;padding:8px 14px;color:var(--accent)"><span style="color:var(--text-muted)">uint</span></div>
+              <div style="min-width:180px;padding:8px 14px;color:var(--text-muted);font-size:12px;display:flex;align-items:center;border-left:1px solid var(--border)">缓冲区容量 = make(chan T, N)</div>
+            </div>
+            <div style="display:flex;border-bottom:1px solid var(--border);background:rgba(56,189,248,0.04)">
+              <div style="min-width:100px;padding:8px 14px;color:var(--text-secondary);font-size:12px;display:flex;align-items:center">├ qcount</div>
+              <div style="flex:1;padding:8px 14px;color:var(--accent)"><span style="color:var(--text-muted)">uint</span></div>
+              <div style="min-width:180px;padding:8px 14px;color:var(--text-muted);font-size:12px;display:flex;align-items:center;border-left:1px solid var(--border)">当前已存元素数 → len(ch)</div>
+            </div>
+            <div style="display:flex;border-bottom:1px solid var(--border);background:rgba(56,189,248,0.04)">
+              <div style="min-width:100px;padding:8px 14px;color:var(--text-secondary);font-size:12px;display:flex;align-items:center">├ sendx</div>
+              <div style="flex:1;padding:8px 14px;color:var(--accent)"><span style="color:var(--text-muted)">uint</span></div>
+              <div style="min-width:180px;padding:8px 14px;color:var(--text-muted);font-size:12px;display:flex;align-items:center;border-left:1px solid var(--border)">下次写入位置 (循环后绕回0)</div>
+            </div>
+            <div style="display:flex;border-bottom:2px solid rgba(56,189,248,0.3);background:rgba(56,189,248,0.04)">
+              <div style="min-width:100px;padding:8px 14px;color:var(--text-secondary);font-size:12px;display:flex;align-items:center">└ recvx</div>
+              <div style="flex:1;padding:8px 14px;color:var(--accent)"><span style="color:var(--text-muted)">uint</span></div>
+              <div style="min-width:180px;padding:8px 14px;color:var(--text-muted);font-size:12px;display:flex;align-items:center;border-left:1px solid var(--border)">下次读取位置 (循环后绕回0)</div>
+            </div>
+
+            <!-- sendq -->
+            <div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border)">
+              <div style="min-width:100px;background:rgba(167,139,250,0.12);padding:10px 14px;color:#a78bfa;font-weight:600;display:flex;align-items:center">⏳ sendq</div>
+              <div style="flex:1;padding:10px 14px;color:var(--accent)"><span style="color:var(--text-muted)">waitq</span></div>
+              <div style="min-width:180px;padding:10px 14px;color:var(--text-muted);font-size:12px;display:flex;align-items:center;border-left:1px solid var(--border)">buf 满 → 发送 G 挂到这个链表</div>
+            </div>
+
+            <!-- recvq -->
+            <div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border)">
+              <div style="min-width:100px;background:rgba(167,139,250,0.12);padding:10px 14px;color:#a78bfa;font-weight:600;display:flex;align-items:center">⏳ recvq</div>
+              <div style="flex:1;padding:10px 14px;color:var(--accent)"><span style="color:var(--text-muted)">waitq</span></div>
+              <div style="min-width:180px;padding:10px 14px;color:var(--text-muted);font-size:12px;display:flex;align-items:center;border-left:1px solid var(--border)">buf 空 → 接收 G 挂到这个链表</div>
+            </div>
+
+            <!-- 元数据 -->
+            <div style="display:flex;border-bottom:1px solid var(--border)">
+              <div style="min-width:100px;background:rgba(251,191,36,0.1);padding:10px 14px;color:#fbbf24;font-weight:600;display:flex;align-items:center">🏷️ elemsize</div>
+              <div style="flex:1;padding:10px 14px;color:var(--accent)"><span style="color:var(--text-muted)">uint16</span></div>
+              <div style="min-width:180px;padding:10px 14px;color:var(--text-muted);font-size:12px;display:flex;align-items:center;border-left:1px solid var(--border)">每个元素占用字节数</div>
+            </div>
+            <div style="display:flex">
+              <div style="min-width:100px;background:rgba(251,191,36,0.1);padding:10px 14px;color:#fbbf24;font-weight:600;display:flex;align-items:center">🏷️ closed</div>
+              <div style="flex:1;padding:10px 14px;color:var(--accent)"><span style="color:var(--text-muted)">uint32</span></div>
+              <div style="min-width:180px;padding:10px 14px;color:var(--text-muted);font-size:12px;display:flex;align-items:center;border-left:1px solid var(--border)">0=开 1=已关</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 底部分组标注 -->
+        <div style="display:flex;gap:8px;margin-top:8px;font-size:11px;color:var(--text-muted);justify-content:center;flex-wrap:wrap">
+          <span style="padding:2px 10px;background:rgba(52,211,153,0.1);border-radius:10px;border:1px solid rgba(52,211,153,0.2)">🟢 并发控制</span>
+          <span style="padding:2px 10px;background:rgba(56,189,248,0.1);border-radius:10px;border:1px solid rgba(56,189,248,0.2)">🔵 环形缓冲</span>
+          <span style="padding:2px 10px;background:rgba(167,139,250,0.1);border-radius:10px;border:1px solid rgba(167,139,250,0.2)">🟣 等待队列</span>
+          <span style="padding:2px 10px;background:rgba(251,191,36,0.1);border-radius:10px;border:1px solid rgba(251,191,36,0.2)">🟡 元数据</span>
+        </div>
+
+      </div>
+
+      <!-- 工作流程 -->
+      <div style="background:linear-gradient(135deg,rgba(56,189,248,0.08),rgba(167,139,250,0.08));border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;font-size:13px;line-height:1.8;max-width:680px;margin:0 auto">
+        <strong style="color:var(--accent)">📐 一次 ch &lt;- data 的完整链路：</strong><br>
+        <span style="color:var(--text-muted)">
+        ① lock(&amp;ch.lock) · · · · · · · · · 加锁<br>
+        ② recvq 有人等？· · · · · · · · · · 直接拷贝数据给它，唤醒，解锁，返回<br>
+        ③ buf 有空位？· · · · · · · · · · · 写入 buf[sendx]，sendx++，qcount++，解锁，返回<br>
+        ④ 都不行 · · · · · · · · · · · · · 把自己挂到 sendq，解锁，G 阻塞休眠等待被唤醒
+        </span>
+      </div>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限与坑</h4>
+      <p>① 往已关闭的 channel 发数据 → panic；② 从已关闭且空的 channel 读 → 零值（需用 ok-idiom 判断）；③ 关闭 nil channel → panic；④ goroutine 泄漏：永远阻塞在 channel 上的 goroutine 无法回收；⑤ channel 传递大型 struct 有拷贝开销，大对象传指针或只传索引。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① 用 <code>v, ok := &lt;-ch</code> 判断 channel 是否关闭；② 发送方关闭 channel（receiver 不应关闭）；③ select + default 实现非阻塞操作；④ context 控制超时，避免永久阻塞；⑤ 大型数据用 <code>chan *T</code> 减少拷贝；⑥ 用 <code>for range</code> 自动处理 channel 关闭。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地场景</h4>
+      <p>① 生产者-消费者模式（worker pool）；② 扇出/扇入（fan-out/fan-in）：一个生产者多个消费者，结果汇总；③ 超时控制：<code>select { case &lt;-ch: ... case &lt;-time.After(1s): ... }</code>；④ 限流器：带缓冲 channel 作为信号量；⑤ 事件通知：<code>done &lt;-chan struct{}{}</code> 优雅退出。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Channel 是 Go 的 goroutine 间通信管道。底层是 hchan 结构：环形队列存数据、两个等待队列 sendq/recvq 存阻塞的 goroutine、一把 mutex 保护并发。无缓冲 channel 是同步手递手，有缓冲 channel 像传送带容量固定。关闭规则：发送方关、不能重复关、不能往已关的发。select 实现多路复用，随机选就绪的 case。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"channel 就是管道"（没解释底层实现）</li>
+        <li>"channel 是并发安全的"（对，但没说为什么——内部有 mutex）</li>
+        <li>"往已关闭的 channel 读会报错"（不会报错，会拿到零值）</li>
+        <li>"select 是随机选择的"（1.8 之前随机，现在也是伪随机，但了解随机性的目的：防止饥饿）</li>
+        <li>"channel 底层就是数组"（是环形队列，不是普通数组）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"channel 底层 hchan 结构：环形队列 + 等待队列 + mutex"</li>
+        <li>"channel 内部有 mutex，所以并发安全"</li>
+        <li>"已关闭的空 channel 读返回零值+false，往已关闭 channel 写会 panic"</li>
+        <li>"select 多个 case 就绪时伪随机选择，避免某个 case 永远饥饿"</li>
+        <li>"底层是环形队列（circular buffer），sendx/recvx 指针循环移动"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">📡 channel</div>
+    <div class="branch">├─ <span class="arrow">→</span> hchan 底层结构</div>
+    <div class="leaf">│  ├─ buf：环形队列（qcount/dataqsiz/sendx/recvx）</div>
+    <div class="leaf">│  ├─ sendq/recvq：阻塞的发送/接收 goroutine 等待队列</div>
+    <div class="leaf">│  └─ lock：mutex 保护并发安全</div>
+    <div class="branch">├─ <span class="arrow">→</span> 环形队列工作机制</div>
+    <div class="leaf">│  ├─ 发送：放入 buf[sendx]，sendx++ 模 dataqsiz，唤醒 recvq</div>
+    <div class="leaf">│  ├─ 接收：取 buf[recvx]，recvx++ 模 dataqsiz，唤醒 sendq</div>
+    <div class="leaf">│  └─ buf 满时发送阻塞、buf 空时接收阻塞</div>
+    <div class="branch">├─ <span class="arrow">→</span> 无缓冲 vs 有缓冲</div>
+    <div class="leaf">│  ├─ 无缓冲（dataqsiz=0）：直接 handoff，发送和接收同时就绪</div>
+    <div class="leaf">│  ├─ 有缓冲：先放 buf，buf 满才阻塞</div>
+    <div class="leaf">│  └─ 无缓冲 = 同步，有缓冲 = 异步（到容量为止）</div>
+    <div class="branch">├─ <span class="arrow">→</span> select 多路复用</div>
+    <div class="leaf">│  ├─ 多个 case 就绪时随机选（伪随机）</div>
+    <div class="leaf">│  ├─ default 实现非阻塞操作</div>
+    <div class="leaf">│  └─ 空 select{} 永久阻塞当前 goroutine</div>
+    <div class="branch">├─ <span class="arrow">→</span> channel 关闭规则</div>
+    <div class="leaf">│  ├─ close(ch) 设置 closed=1，唤醒所有等待的 recvq/sendq</div>
+    <div class="leaf">│  ├─ 向已关闭 channel 发送 → panic</div>
+    <div class="leaf">│  ├─ 关闭已关闭的 channel → panic</div>
+    <div class="leaf">│  ├─ 关闭 nil channel → panic</div>
+    <div class="leaf">│  └─ 从已关闭 channel 读：有数据正常读，无数据返回零值+false</div>
+    <div class="branch">└─ <span class="arrow">→</span> 典型使用场景</div>
+    <div class="leaf">   ├─ Worker Pool（生产者-消费者）</div>
+    <div class="leaf">   ├─ 扇出/扇入（fan-out/fan-in）</div>
+    <div class="leaf">   ├─ 信号通知：done &lt;-chan struct{}{}</div>
+    <div class="leaf">   └─ 限流器/信号量：带缓冲 channel</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"Channel 像传送带：无缓冲 = 手递手（双方必须同时就位），有缓冲 = 传送带（可以先放上去排队），关闭 = 贴封条（只能取已放的东西，不能再放新的）。select 像大堂经理——同时盯着好几条传送带，哪条有货处理哪条。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 说出 hchan 的 5 个以上字段（buf, sendq, recvq, lock, closed, sendx/recvx）</li>
+    <li><input type="checkbox"> 解释无缓冲 channel 和有缓冲 channel 的行为差异</li>
+    <li><input type="checkbox"> 说出 3 种会 panic 的 channel 操作（向已关闭发、关闭已关闭的、关闭 nil）</li>
+    <li><input type="checkbox"> 解释 select 的随机性设计目的（防止饥饿）</li>
+    <li><input type="checkbox"> 写出从已关闭 channel 安全读取的 ok-idiom</li>
+    <li><input type="checkbox"> 举例 3 个 channel 实际使用场景及对应代码模式</li>
+    <li><input type="checkbox"> 说明"通过通信共享内存"和"通过共享内存通信"的区别</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

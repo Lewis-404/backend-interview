@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>netstat/ss 网络诊断 — Linux 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link active">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+  <div class="interview-header">
+    <div class="breadcrumb"><a href="../linux/index.html">Linux</a> / netstat/ss 网络诊断</div>
+    <h1>netstat / ss — 网络连接诊断工具</h1>
+    <div class="meta"><span>编号：LINUX-05</span><span>难度：⭐⭐⭐</span><span>频率：🔥🔥🔥🔥</span></div>
+  </div>
+
+  <div class="summary-box anim-scale">
+    <div class="label">💡 一句话结论</div>
+    <div class="one-liner">netstat（已逐步被 ss 替代）用于查看网络连接、路由表、接口统计。ss -tlnp 查看 TCP 监听端口、ss -anp 查看所有连接。连接状态：LISTEN 监听 / ESTABLISHED 已建立 / TIME_WAIT 等待关闭 / CLOSE_WAIT 对方关闭。</div>
+  </div>
+
+  <!-- ====== 🎬 生活类比故事 ====== -->
+  <section class="story-section">
+    <div class="story-label">🎬 生活类比 — netstat/ss = 港口调度中心</div>
+    <div class="story-title">用「港口」看懂 TCP 连接状态</div>
+
+    <div class="story-scene anim-fade-left">
+      <div class="scene-icon">🚢</div>
+      <div>
+        <strong style="color:var(--accent)">场景1：LISTEN = 泊位开放，ESTABLISHED = 轮船停靠</strong><br>
+        <span style="color:var(--text-secondary)">港口调度中心的大屏幕上，每个泊位（端口）都有状态。<strong style="color:#fbbf24">LISTEN = 泊位已开放，欢迎轮船停靠</strong>（服务器在监听）。<strong style="color:#fbbf24">ESTABLISHED = 轮船已停稳，正在装卸货物</strong>（三次握手完成，正常通信）。ss -tlnp = 查看所有开放的泊位和对应的码头工人（进程）。</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-right delay-200">
+      <div class="scene-icon">🌊</div>
+      <div>
+        <strong style="color:var(--accent)">场景2：TIME_WAIT = 轮船刚走，等浪平静</strong><br>
+        <span style="color:var(--text-secondary)">一艘轮船离开泊位后，港口规定<strong style="color:#fbbf24">必须等 2MSL（约 60 秒）</strong>浪才能平静。为什么？①确保最后发送的"再见信号"（ACK）对方收到了，如果丢了对方会重发"我要走了"（FIN），这边还能回应。②让上一艘船掀起的浪花（残留报文）完全消失，不影响下一艘船。</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-left delay-400">
+      <div class="scene-icon">🪜</div>
+      <div>
+        <strong style="color:var(--accent)">场景3：CLOSE_WAIT = 船走了但跳板没撤</strong><br>
+        <span style="color:var(--text-secondary)">对方轮船发来"我要走了"的信号（FIN），但码头工人<strong style="color:#f87171">忘了撤跳板</strong>（应用没调 close()）。泊位就这么空挂着，别人也用不了。<strong style="color:#f87171">CLOSE_WAIT 大量堆积一定是应用 bug</strong>——不是调内核参数能解决的，要去查代码。</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <span class="metaphor-emoji">⚓</span>
+      <div class="metaphor-title">LISTEN</div>
+      <div class="metaphor-desc">泊位开放迎客<br>服务器在监听端口</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <span class="metaphor-emoji">🚢</span>
+      <div class="metaphor-title">ESTABLISHED</div>
+      <div class="metaphor-desc">轮船停靠装卸货<br>正常通信中</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <span class="metaphor-emoji">🌊</span>
+      <div class="metaphor-title">TIME_WAIT</div>
+      <div class="metaphor-desc">船走等浪平 60s<br>TCP 协议要求的正常状态</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-400">
+      <span class="metaphor-emoji">🪜</span>
+      <div class="metaphor-title">CLOSE_WAIT</div>
+      <div class="metaphor-desc">忘撤跳板占泊位<br>应用 bug 必须查代码</div>
+    </div>
+  </div>
+
+  <div class="section highlight anim-fade-up">
+    <h3><span class="emoji">📋</span> 7步答题模板</h3>
+    <div class="answer-template">
+      <div class="step"><h4>第一步：一句话定义</h4><p>netstat（network statistics）是网络连接查看工具。注意：netstat 已经被 ss（socket statistics）逐步替代，ss 更快（直接读 /proc/net 而非遍历 /proc/PID/fd），面试应该主动提 ss。</p></div>
+      <div class="step"><h4>第二步：常用命令</h4><p>ss -tlnp：查看所有 TCP 监听端口（t=TCP, l=LISTEN, n=数字格式不解析域名, p=显示进程）。ss -anp：查看所有连接（含 UDP、UNIX）。ss -s：汇总统计。ss -i：TCP 详细信息（拥塞窗口、重传等）。</p></div>
+      <div class="step"><h4>第三步：TCP 连接状态（必考点）</h4><p>LISTEN：服务器在监听端口。ESTABLISHED：三次握手完成，正常通信。TIME_WAIT：主动关闭方等待 2MSL（约 60s）确保最后的 ACK 到达。CLOSE_WAIT：被动关闭方收到 FIN 但还没调用 close()，应用层 bug 常见。</p></div>
+      <div class="step"><h4>第四步：TIME_WAIT 详解</h4><p>为什么等 2MSL？①确保最后一个 ACK 丢包时对方能重发 FIN；②让旧连接的残留报文在网络上消失。大量 TIME_WAIT 优化：tcp_tw_reuse=1（复用）、tcp_timestamps=1（时间戳判断）。</p></div>
+      <div class="step"><h4>第五步：CLOSE_WAIT 泄漏</h4><p>CLOSE_WAIT 大量堆积 = 应用收到对方 FIN 但没有调用 close()。经典原因：应用代码忘记关闭连接、线程阻塞、连接池未释放。排查：ss -anp | grep CLOSE_WAIT 找到进程，检查应用代码。</p></div>
+      <div class="step"><h4>第六步：netstat vs ss</h4><p>ss 比 netstat 快很多（特别是大量连接时），因为 ss 直接从内核 netlink socket 获取数据，而 netstat 要遍历 /proc/PID/fd 目录。现代 Linux 默认应该用 ss。</p></div>
+      <div class="step"><h4>第七步：实战场景</h4><p>端口占用排查：ss -tlnp | grep :8080（谁在监听 8080）。连接统计：ss -s（看建立了多少连接）。大量 TIME_WAIT：ss -an state time-wait | wc -l（计数）。CLOSE_WAIT 异常：ss -an state close-wait。</p></div>
+    </div>
+  </div>
+
+  <div class="timer-box">
+    <div class="timer-icon">⏱️</div>
+    <div>
+      <div class="timer-label">60秒面试表达</div>
+      <div class="timer-text">"现在更推荐用 ss 替代 netstat，ss 更快。TCP 有 11 种状态，面试最常问的是四个：LISTEN 监听、ESTABLISHED 正常通信、TIME_WAIT 主动关闭后等 2MSL、CLOSE_WAIT 被动关闭但应用没关。TIME_WAIT 多可以调内核参数优化，CLOSE_WAIT 多一定是应用 bug——忘了 close 连接。"</div>
+    </div>
+  </div>
+
+  <div class="section warning-zone">
+    <h3><span class="emoji">⚠️</span> 面试常见错误 vs 正确回答</h3>
+    <div class="compare">
+      <div class="col before">
+        <h4>❌ 错误回答</h4>
+        <p>"netstat -an" 就行（太基础）<br><br>"TIME_WAIT 是 bug 要消除"<br><br>"CLOSE_WAIT 调内核参数就能解决"</p>
+      </div>
+      <div class="col after">
+        <h4>✅ 正确回答</h4>
+        <p>"ss -tlnp 查看监听，ss 更快。TIME_WAIT 是 TCP 协议要求的正常状态"<br><br>"TIME_WAIT 是必要的，等 2MSL 确保 ACK 到达和旧报文消失"<br><br>"CLOSE_WAIT 是应用 bug——内核参数改不了，必须查代码是否调了 close()"</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim-fade-up">
+    <h3><span class="emoji">🌲</span> 追问树</h3>
+    <div class="tree">
+      <span class="node">netstat / ss</span><br>
+      <span class="branch">├─ TCP 连接状态有哪些？</span><br>
+      <span class="leaf">→ LISTEN → ESTABLISHED → TIME_WAIT / CLOSE_WAIT / FIN_WAIT...</span><br>
+      <span class="branch">├─ TIME_WAIT 为什么等 2MSL？</span><br>
+      <span class="leaf">→ ①确保最后 ACK 到达 ②让旧连接残留报文在网络消失</span><br>
+      <span class="branch">├─ 大量 TIME_WAIT 怎么优化？</span><br>
+      <span class="leaf">→ tcp_tw_reuse=1 复用 / tcp_timestamps=1 / 改 tcp_max_tw_buckets</span><br>
+      <span class="branch">├─ CLOSE_WAIT 泄漏怎么办？</span><br>
+      <span class="leaf">→ 应用没调 close()，排查代码（连接池未释放/忘记 close）</span><br>
+      <span class="branch">├─ netstat vs ss 性能差距？</span><br>
+      <span class="leaf">→ ss 用 netlink 直接读内核，netstat 遍历 /proc/PID/fd</span><br>
+      <span class="branch">└─ 怎么查端口被谁占用？</span><br>
+      <span class="leaf">→ ss -tlnp | grep :PORT 或 lsof -i:PORT</span>
+    </div>
+  </div>
+
+  <div class="memory-hook">
+    <div class="hook-label">🧠 记忆钩子</div>
+    <div class="hook-text">"netstat/ss = 港口调度：LISTEN = 泊位开放、ESTABLISHED = 轮船停靠、TIME_WAIT = 轮船刚走等浪平静、CLOSE_WAIT = 轮船走了但没撤跳板"</div>
+  </div>
+
+  <div class="section success-zone">
+    <h3><span class="emoji">✅</span> 自检清单</h3>
+    <ul class="check-list">
+      <li><input type="checkbox"> ss 比 netstat 快，能说出为什么吗？（netlink vs /proc）</li>
+      <li><input type="checkbox"> TIME_WAIT 的两个作用能说清楚吗？</li>
+      <li><input type="checkbox"> CLOSE_WAIT 和 TIME_WAIT 是谁产生的？分别在连接的哪一侧？</li>
+      <li><input type="checkbox"> TIME_WAIT 调内核参数能根本解决吗？还是治标？</li>
+      <li><input type="checkbox"> 面试官问"服务重启提示端口被占用"，立刻能说出排查命令吗？</li>
+      <li><input type="checkbox"> TCP 11 种状态能说出至少 6 个吗？</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

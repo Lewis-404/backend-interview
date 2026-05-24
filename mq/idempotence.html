@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>幂等性设计 — MQ 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link active">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+  <div class="interview-header">
+    <div class="breadcrumb"><a href="../mq/index.html">MQ</a> / 幂等性设计</div>
+    <h1>幂等性设计 — 分布式系统的基石</h1>
+    <div class="meta"><span>编号：MQ-03</span><span>难度：⭐⭐⭐</span><span>频率：🔥🔥🔥🔥🔥</span></div>
+  </div>
+
+  <div class="summary-box anim-scale">
+    <div class="label">💡 一句话结论</div>
+    <div class="one-liner">幂等性是指同一操作执行多次结果不变。分布式系统幂等设计：唯一 ID 生成（雪花算法/UUID）、数据库去重表/唯一索引、Redis SetNX、状态机判断（已处理则跳过）。需考虑并发安全。</div>
+  </div>
+
+  <!-- ====== 🎬 生活类比故事 ====== -->
+  <section class="story-section">
+    <div class="story-label">🎬 生活类比 — 幂等性 = 电梯关门按钮</div>
+    <div class="story-title">用「电梯按钮」看懂幂等性设计</div>
+    <div class="story-scene anim-fade-left">
+      <div class="scene-icon">🛗</div>
+      <div>
+        <strong style="color:var(--accent)">场景1：电梯关门按钮按 10 次，门也只关一次</strong><br>
+        <span style="color:var(--text-secondary)">你进了电梯按关门键——连按 10 次，门也不会关 10 次。<strong style="color:#fbbf24">这就是幂等性——同一操作执行多次，结果和执行一次完全一样</strong>。电梯的逻辑：门已经是"关闭中"状态，再按关门键就忽略。<strong style="color:#f87171">如果没有幂等性</strong>：按一次扣一次钱——按 10 次扣 10 次钱，这就出大事了。</span>
+      </div>
+    </div>
+    <div class="story-scene anim-fade-right delay-200">
+      <div class="scene-icon">📝</div>
+      <div>
+        <strong style="color:var(--accent)">场景2：去重表 = 签到表，SETNX = 签到簿</strong><br>
+        <span style="color:var(--text-secondary)">公司开会，进门先签到。<strong style="color:#fbbf24">去重表（idempotent_record）</strong> = 签到表——每人（每条消息 ID）只能签一次，重复签会被拒绝（唯一索引冲突）。<strong style="color:#fbbf24">Redis SETNX = 电子签到簿</strong>——扫一下工卡，系统说"已签到"就直接通过，不用去翻纸质签到表。签到簿可能没电（Redis 重启），纸质签到表还在（DB 兜底）。</span>
+      </div>
+    </div>
+    <div class="story-scene anim-fade-left delay-400">
+      <div class="scene-icon">🔐</div>
+      <div>
+        <strong style="color:var(--accent)">场景3：并发安全 = 两个人同时按关门键</strong><br>
+        <span style="color:var(--text-secondary)">两个人同时进电梯，同时按关门键。如果没有防护，电梯可能"关两次"——这就不是幂等性的事了，是<strong style="color:#fbbf24">并发安全</strong>的问题。解决方案：<strong style="color:#fbbf24">SETNX 天然原子</strong>（一次只能一个人签到）、<strong style="color:#fbbf24">DB 唯一索引串行化</strong>（同时 INSERT 只有一个成功）、<strong style="color:#fbbf24">CAS 状态机</strong>（UPDATE WHERE status='pending'，affected_rows=0 说明被并发处理了）。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 技术映射卡片 ====== -->
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <span class="metaphor-emoji">🛗</span>
+      <div class="metaphor-title">电梯按钮 = 幂等</div>
+      <div class="metaphor-desc">按10次也只关一次<br>f(f(x)) = f(x)</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <span class="metaphor-emoji">📝</span>
+      <div class="metaphor-title">去重表 = 签到表</div>
+      <div class="metaphor-desc">DB唯一索引防重复<br>每人每消息只能签一次</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <span class="metaphor-emoji">📋</span>
+      <div class="metaphor-title">SETNX = 签到簿</div>
+      <div class="metaphor-desc">Redis原子操作<br>快但可能丢，需DB兜底</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-400">
+      <span class="metaphor-emoji">🔐</span>
+      <div class="metaphor-title">CAS = 防同时按</div>
+      <div class="metaphor-desc">UPDATE WHERE status=旧<br>乐观锁保证并发安全</div>
+    </div>
+  </div>
+
+  <div class="section highlight anim-fade-up">
+    <h3><span class="emoji">📋</span> 7步答题模板</h3>
+    <div class="answer-template">
+      <div class="step"><h4>第一步：数学定义与意义</h4><p>幂等性（Idempotence）：f(f(x)) = f(x)，同输入执行多次与执行一次结果相同。HTTP 方法中 GET/PUT/DELETE 是幂等的，POST 不是。分布式系统中网络重试、消息重投、超时重发是常态，没有幂等性就会产生副作用（重复扣款、重复创建资源）。</p></div>
+      <div class="step"><h4>第二步：幂等 ID 生成</h4><p>每条请求/消息需要一个全局唯一标识。雪花算法（Snowflake）：64 位 long，1 位符号+41 位时间戳+10 位机器 ID+12 位序列号，单机 QPS 可达 400 万。UUID：128 位，简单但有碰撞概率（极小）且索引性能差。业务 ID：如 order_id、trade_no 天然唯一，更推荐优先用业务 ID。</p></div>
+      <div class="step"><h4>第三步：数据库去重表</h4><p>建一张 idempotent_record 表：idempotent_key VARCHAR(128) UNIQUE、created_at TIMESTAMP。每次请求先 INSERT INTO idempotent_record VALUES(key, NOW())，唯一索引冲突说明已处理。可以和业务操作放在同一事务中保证原子性。INSERT IGNORE 或 ON DUPLICATE KEY 也能用。</p></div>
+      <div class="step"><h4>第四步：Redis SetNX 方案</h4><p>SET key value NX EX ttl：key 为业务 ID（如 order:{id}:pay），NX 表示只有不存在时才设置成功。返回 OK → 第一次，执行；返回 nil → 已处理，跳过。注意设置合理过期时间（不能短于业务处理时间）。缺点：Redis 重启可能丢 key，需要 DB 唯一索引兜底。</p></div>
+      <div class="step"><h4>第五步：状态机判断</h4><p>业务对象加状态字段（如订单：待支付→已支付→已发货→已完成）。处理前先查状态：if status == "待支付" then 扣款并更新为已支付；else return "已处理"。用数据库乐观锁保证并发安全：UPDATE order SET status='paid' WHERE id=? AND status='pending'，affected_rows=0 说明已被并发处理。</p></div>
+      <div class="step"><h4>第六步：并发安全</h4><p>幂等性不仅要防重复，还要防并发。Redis SETNX 本身是原子的。DB 去重表 + 唯一索引天然串行化。状态机 + CAS（Compare And Swap）也是原子的。最差情况可以加分布式锁（Redisson），但锁只解决并发不解决重复，需要和幂等方案配合使用。</p></div>
+      <div class="step"><h4>第七步：RPC 幂等方案</h4><p>不只是 MQ，RPC 调用也可能重试（超时、负载均衡重试）。方案：①客户端生成 TraceID 传给服务端，服务端做去重；②网关层统一幂等（基于 TraceID + Redis）；③gRPC 拦截器做幂等校验。金融场景最好做端到端幂等。</p></div>
+    </div>
+  </div>
+
+  </section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"幂等性就是同一次操作执行多次结果不变。实现分四层：第一层 ID 生成——雪花算法或业务 ID；第二层去重表——DB 唯一索引做最强保证；第三层 Redis SetNX——性能好但可能丢 key；第四层状态机——适合有明确状态的业务。关键是并发安全——SETNX 和唯一索引天然原子，状态机用 CAS 乐观锁。生产环境 Redis+DB 双保险。"</div>
+    </div>
+  </div>
+</section>
+
+  <div class="section warning-zone">
+    <h3><span class="emoji">⚠️</span> 面试常见错误 vs 正确回答</h3>
+    <div class="compare">
+      <div class="col before">
+        <h4>❌ 错误回答</h4>
+        <p>"幂等就是加个锁"<br><br>"Redis SETNX 就够了"<br><br>"UUID 做幂等 ID 最好"</p>
+      </div>
+      <div class="col after">
+        <h4>✅ 正确回答</h4>
+        <p>"锁解决并发，不解决重复——两次非并发的请求锁不住"<br><br>"Redis 可能丢 key，必须 DB 唯一索引兜底"<br><br>"UUID 索引性能差，业务 ID 或雪花算法更优"</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim-fade-up"><h3><span class="emoji">🌲</span> 追问树</h3>
+    <div class="tree">
+      <span class="node">幂等性</span><br>
+      <span class="branch">├─ 什么是幂等性？</span><br>
+      <span class="leaf">→ f(f(x))=f(x)，多次执行结果相同</span><br>
+      <span class="branch">├─ 为什么 MQ/RPC 需要幂等？</span><br>
+      <span class="leaf">→ 网络重试/超时重发/消息重投 不可避免</span><br>
+      <span class="branch">├─ ID 生成方案有哪些？</span><br>
+      <span class="leaf">→ 雪花算法(64位long)/UUID(128位)/业务ID(最推荐)</span><br>
+      <span class="branch">├─ DB 去重怎么做？</span><br>
+      <span class="leaf">→ 唯一索引 + INSERT IGNORE / ON DUPLICATE KEY</span><br>
+      <span class="branch">├─ Redis SETNX 怎么用？</span><br>
+      <span class="leaf">→ SET key val NX EX ttl，原子操作，高性能</span><br>
+      <span class="branch">├─ 状态机方案？</span><br>
+      <span class="leaf">→ 先查状态 + CAS 更新：UPDATE ... WHERE status='pending'</span><br>
+      <span class="branch">└─ 怎么保证并发安全？</span><br>
+      <span class="leaf">→ SETNX 天然原子 / 唯一索引 / CAS / 分布式锁保底</span>
+    </div>
+  </div>
+
+  <div class="memory-hook">
+    <div class="hook-label">🧠 记忆钩子</div>
+    <div class="hook-text">"幂等性 = 电梯关门按钮：连续按 10 次也只关一次门，多按不碍事（去重表），但要防两人同时按（并发安全）。SETNX = 签到表：签过了就不再签到。"</div>
+  </div>
+
+  <div class="section success-zone">
+    <h3><span class="emoji">✅</span> 自检清单</h3>
+    <ul class="check-list">
+      <li><input type="checkbox"> 幂等性和并发安全是两个问题，能说清楚区别吗？</li>
+      <li><input type="checkbox"> 雪花算法的 41 位时间戳能用多少年？12 位序列号单机 QPS？</li>
+      <li><input type="checkbox"> Redis SETNX 的过期时间怎么定？太短/太长的后果？</li>
+      <li><input type="checkbox"> INSERT IGNORE 和 ON DUPLICATE KEY UPDATE 选哪个？</li>
+      <li><input type="checkbox"> CAS 状态机的 SQL 怎么写？如果 affected_rows=0 怎么办？</li>
+      <li><input type="checkbox"> HTTP 哪些方法是幂等的？POST 怎么做幂等？</li>
+    </ul>
+  </div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

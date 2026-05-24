@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GO-07 Map 并发安全 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="index.html" class="go-link active">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">Go</a> &rsaquo; Map 并发安全</div>
+  <h1>🗺️ Map 并发安全问题</h1>
+  <div class="meta">
+    <span>编号 GO-07</span>
+    <span>分类：并发编程</span>
+    <span>难度：⭐⭐⭐</span>
+    <span>频率：高频</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Go 内置 map 非并发安全，并发读写直接触发 fatal error（concurrent map writes/read and write），不可 recover。解决方案：写多读少用 <code>sync.RWMutex</code> 包装；读多写少用 <code>sync.Map</code>（read + dirty 双缓存 + 原子操作）；超高并发用分段锁自己实现。</div>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 多人同写黑板</div>
+  <div class="story-title">黑板只有一块，多人同时写就糊了——这就是 map 并发问题</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">💥</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：两人同时写黑板(并发写 map) = 字糊了(fatal error)</strong><br>
+      <span style="color:var(--text-secondary)">教室里一块黑板，两个老师同时冲上去写不同的内容——粉笔撞在一起，字迹糊成一片，黑板还裂了一条缝。Go 的 map 就是这样：两个 goroutine 同时写，runtime 检测到后直接抛 fatal error——不是 panic，不可 recover，程序直接崩溃退出。黑板裂了，没得修。</span>
+    </div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🚶</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：RWMutex = 轮流使用黑板（一人写，别人等着）</strong><br>
+      <span style="color:var(--text-secondary)">最直接的解决方案：排队。谁要写字（写）就独占黑板，其他人等着。如果只是看黑板（读），可以多人一起看。这就是 sync.RWMutex——写时 Lock 独占，读时 RLock 共享。简单粗暴，适用大多数场景。但人多时排队也很烦。</span>
+    </div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">📋</div>
+    <div>
+      <strong style="color:var(--accent)">场景3：sync.Map = 给黑板分区（各写各的区域）</strong><br>
+      <span style="color:var(--text-secondary)">更好的方案：把黑板分成两块——一块日常阅读区(read)，一块新增内容区(dirty)。读的人只看 read 区，不用排队（无锁原子操作）。写新内容的人去 dirty 区写（加锁）。dirty 区内容够多了，就升格为新的 read 区。这就是 sync.Map 的 read+dirty 双缓存设计。读多写少时几乎无锁。</span>
+    </div>
+  </div>
+  <div class="story-scene anim-fade-right delay-600">
+    <div class="scene-icon">🔨</div>
+    <div>
+      <strong style="color:var(--accent)">场景4：分段锁 = 把大黑板切成 N 个小黑板</strong><br>
+      <span style="color:var(--text-secondary)">如果人实在太多，就把大黑板切成 32 块小黑板。每个人根据自己写的 key 的 hash 值去对应的小黑板写。每块小黑板有自己的锁，互不影响。这就是分段锁——散列到不同 shard，锁粒度降到 1/N，吞吐量提升近 N 倍。代价是内存占用更大、扩容复杂。</span>
+    </div>
+  </div>
+</section>
+
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🔒</span>
+    <div class="metaphor-title">读写锁 = 排队用黑板</div>
+    <div class="metaphor-desc">写者独占，读者共享；写多读多时最简单可靠的选择</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">📊</span>
+    <div class="metaphor-title">分段锁 = 分区黑板</div>
+    <div class="metaphor-desc">hash(key) 散列到不同 shard，每块独立加锁，吞吐量倍增</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">📖</span>
+    <div class="metaphor-title">sync.Map = 分区 + 快速查找</div>
+    <div class="metaphor-desc">read 区无锁读，dirty 区加锁写，读多写少场景最优</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">💀</span>
+    <div class="metaphor-title">fatal error</div>
+    <div class="metaphor-desc">黑板裂了没法修——不可 recover，程序直接退出</div>
+  </div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么问题</h4>
+      <p>Go 的 <code>map[K]V</code> 不是并发安全的。多个 goroutine 同时对同一个 map 进行读写（包括一个写+一个读）会触发 runtime 的并发检测器，抛出 fatal error：<code>concurrent map writes</code> 或 <code>concurrent map read and map write</code>。这是 fatal 级别的错误，无法被 recover 捕获，程序直接崩溃退出。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么 Go 不做并发安全的 map</h4>
+      <p>这是 Go 团队的有意设计：①大多数场景下 map 不需要并发访问（局部变量、单 goroutine 使用）；②内置并发安全 map（如 Java 的 ConcurrentHashMap）会增加所有 map 操作的开销（约 20-50%）；③遵循"不要为你不用的功能付费"的哲学。需要并发安全时，开发者自己选择合适的加锁策略。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 三种解决方案</h4>
+      <p><strong>方案 1 — sync.RWMutex（写多读少）： </strong>写时 Lock，读时 RLock。适用高频写入场景，清晰直观。<br>
+      <strong>方案 2 — sync.Map（读多写少）： </strong>Go 1.9 引入。内部两个 map：read（只读，readOnly 结构）和 dirty（脏数据）。读走 read（原子操作，无锁），写走 dirty（需要加锁），miss 次数超过阈值触发 dirty 提升为 read。适合读多写少（如缓存、配置）。<br>
+      <strong>方案 3 — 分段锁： </strong>将 key hash 到多个 map shard，每个 shard 独立加锁。适合超高并发、大量 key。典型实现：orcaman/concurrent-map。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — sync.Map 核心原理</h4>
+      <div class="code-block">
+<span class="comment">// sync.Map 核心结构（简化）</span>
+<span class="keyword">type</span> Map <span class="keyword">struct</span> {
+  mu     Mutex            <span class="comment">// 保护 dirty 的锁</span>
+  read   atomic.Value     <span class="comment">// readOnly: map[key]*entry, 无锁读</span>
+  dirty  <span class="keyword">map</span>[<span class="keyword">any</span>]*entry <span class="comment">// 脏数据，加锁访问</span>
+  misses <span class="keyword">int</span>             <span class="comment">// read 穿透到 dirty 的次数</span>
+}
+<span class="comment">// Load 流程：先查 read（无锁），miss 后查 dirty（加锁），misses++</span>
+<span class="comment">// misses ≥ len(dirty) 时，dirty 提升为 read，dirty 置 nil</span>
+<span class="comment">// Store 流程：先看 read 中有无 key，有则 CAS 更新（无锁），无则加锁写入 dirty</span></div>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 各方案的缺点</h4>
+      <p>① <strong>sync.RWMutex：</strong>读多写少时，读写锁的 readerCount 在高并发下仍是瓶颈（原子操作竞争）；② <strong>sync.Map：</strong>写操作多时性能反而比 RWMutex 差（频繁 dirty → read 提升有开销）；不支持 Len() 遍历所有 dirty key；类型不安全（interface{}）；③ <strong>分段锁：</strong>实现复杂、内存占用大（多个 map + 锁）、扩容困难。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何选择方案</h4>
+      <p>① 写多读多（写入占比 &gt; 20%）：sync.RWMutex；② 读多写少（写入占比 &lt; 5%）、key 稳定：sync.Map；③ 超高 QPS（百万级）、大量 key：分段锁；④ key 少（几百个）、操作极频繁：sync.RWMutex（分段开销不值得）；⑤ 同一个 key 写入一次读取多次（缓存模式）：sync.Map 最适合。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>① 最简单的并发安全 map：<code>type SafeMap struct { mu sync.RWMutex; data map[string]interface{} }</code> 封装 Get/Set/Delete 方法；② HTTP 中间件缓存请求计数：<code>var counter sync.Map</code> → <code>counter.LoadOrStore(key, 1)</code>；③ 连接池管理：分段锁方案减少锁竞争；④ 编译时检测：<code>go test -race</code> 可提前发现并发 map 读写问题。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Go 原生 map 不是并发安全的，并发读写会触发 fatal error 程序直接崩。三种解法：①sync.RWMutex 包装——最通用，写多读多场景用；②sync.Map——read+dirty 双缓存，读无锁走 read，穿透到 dirty 才加锁，适合读多写少；③分段锁——hash 拆分多个 shard 独立加锁，适合超高并发。选型口诀：普通场景 RWMutex，缓存场景 sync.Map，百万 QPS 分段锁。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"我用 channel 替代 map"（channel 是通信机制，不是高性能 K-V 存储）</li>
+        <li>"sync.Map 比 RWMutex 快"（不是绝对的！写多时反而更慢）</li>
+        <li>"map 并发读写可以用 recover 捕获"（错！fatal error 不可 recover）</li>
+        <li>"sync.Map 和普通 map 一样用"（类型不安全、不支持 range 遍历、无 Len()）</li>
+        <li>"加把大锁就行了"（高并发下全局锁是瓶颈，要区分场景选方案）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"fatal error: concurrent map writes 是 runtime 直接抛的，不可 recover"</li>
+        <li>"sync.Map 在写少读多时优于 RWMutex（读无锁），写多时反而更差"</li>
+        <li>"sync.Map 类型不安全（interface{}），无 Len()，Range 需注意一致性"</li>
+        <li>"分段锁= hash(key) % shardCount → 各 shard 独立加锁，减少竞争"</li>
+        <li>"用 go test -race 可提前检测并发 map 问题，防止上线崩"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">🗺️ Map 并发安全</div>
+    <div class="branch">├─ <span class="arrow">→</span> 为什么不安全？</div>
+    <div class="leaf">│  ├─ 底层哈希表操作无锁保护</div>
+    <div class="leaf">│  ├─ 并发写触发 bucket 数据竞争（内部指针被写坏）</div>
+    <div class="leaf">│  ├─ runtime 检测到并发读写 → 直接 throw fatal error</div>
+    <div class="leaf">│  └─ 不是 panic 是 fatal（不可 recover，程序强制退出）</div>
+    <div class="branch">├─ <span class="arrow">→</span> sync.RWMutex 方案</div>
+    <div class="leaf">│  ├─ 写：mu.Lock() / 读：mu.RLock()</div>
+    <div class="leaf">│  ├─ readerCount 追踪正在读的 goroutine 数</div>
+    <div class="leaf">│  ├─ 写锁必须等所有读锁释放（读多时写可能饿死）</div>
+    <div class="leaf">│  └─ 实现简单，通用场景首选</div>
+    <div class="branch">├─ <span class="arrow">→</span> sync.Map（read + dirty 双缓存）</div>
+    <div class="leaf">│  ├─ read：readOnly{m map[key]*entry + amended bool}，atomic 无锁访问</div>
+    <div class="leaf">│  ├─ dirty：map[key]*entry，mu 保护</div>
+    <div class="leaf">│  ├─ Load：先查 read（无锁）→ miss 查 dirty（加锁）→ misses++</div>
+    <div class="leaf">│  ├─ Store：read 有 key → CAS 更新（无锁）；无 → 加锁写 dirty</div>
+    <div class="leaf">│  ├─ Delete：软删除（entry.p = nil），不立即从 dirty 移除</div>
+    <div class="leaf">│  └─ misses ≥ len(dirty) → dirty 提升为 read（复制 map）</div>
+    <div class="branch">└─ <span class="arrow">→</span> 分段锁方案</div>
+    <div class="leaf">   ├─ N 个 shard，每个 shard = map + 独立 sync.RWMutex</div>
+    <div class="leaf">   ├─ 路由：shard[hash(key) % N]</div>
+    <div class="leaf">   ├─ 锁粒度：1/N，吞吐量提升约 N 倍</div>
+    <div class="leaf">   └─ 缺点：内存占用大、扩容复杂、哈希不均匀时有热点 shard</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"Map 像一块黑板，多人同时写，字迹就花了。sync.RWMutex 是轮班制——写的人独占黑板，读的人可以一起看。sync.Map 是两块黑板——一块日常看（read，不排队），一块记新内容（dirty，排队写），新内容多了就换上去。分段锁是把大黑板切成 N 小块，每人只在自己那块写。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 解释为什么 Go map 并发读写是 fatal error（而非 panic），且不可 recover</li>
+    <li><input type="checkbox"> 写出 sync.RWMutex 包装 map 的 Get/Set 代码</li>
+    <li><input type="checkbox"> 画出 sync.Map 的 read + dirty 结构，解释 Load 和 Store 流程</li>
+    <li><input type="checkbox"> 说明 sync.Map 提升条件（misses ≥ len(dirty)）和性能退化场景（写多）</li>
+    <li><input type="checkbox"> 解释分段锁的原理和适用场景</li>
+    <li><input type="checkbox"> 给出三种方案的选型建议（写多/读多/超高并发）</li>
+    <li><input type="checkbox"> 说出 <code>go test -race</code> 可以提前检测并发 map 问题</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

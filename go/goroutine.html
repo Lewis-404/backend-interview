@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GO-01 Goroutine 是什么？为什么轻量？ — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="index.html" class="go-link active">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">Go</a> &rsaquo; Goroutine</div>
+  <h1>🦍 Goroutine 是什么？为什么轻量？</h1>
+  <div class="meta">
+    <span>编号 GO-01</span>
+    <span>分类：并发编程</span>
+    <span>难度：⭐⭐⭐</span>
+    <span>频率：必问</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Goroutine 是 Go 的用户态轻量协程，初始栈仅 2KB（OS 线程 1MB），由 Go 运行时调度而非 OS 内核，创建成本极低，可实现百万级并发。</div>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 蚂蚁搬家 vs 大象走路</div>
+  <div class="story-title">为什么 2KB 的蚂蚁能跑赢 1MB 的大象？</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🐜</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：蚂蚁体重 vs 大象体重 = 2KB vs 1MB</strong><br>
+      <span style="color:var(--text-secondary)">Goroutine 初始栈只有 2KB，就像一只小蚂蚁，轻到可以在任何地方起步。OS 线程栈固定 1MB，像一头大象——光是站起来就需要巨大的空间。一只蚂蚁百万只都不挤，几头大象就把路堵死了。</span>
+    </div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🐘</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：蚂搬家 vs 大象搬家 = 百万 vs 几千</strong><br>
+      <span style="color:var(--text-secondary)">成千上万只蚂蚁可以同时搬不同的食物，各走各的路，互不干扰。大象呢？搬个东西需要专门的开路指挥，一次只能通过几头。这就是为什么 Go 可以轻松跑百万 goroutine，而 OS 线程最多几千个。</span>
+    </div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🧭</div>
+    <div>
+      <strong style="color:var(--accent)">场景3：蚂蚁认路 vs 交警指挥 = 用户态 vs 内核态</strong><br>
+      <span style="color:var(--text-secondary)">蚂蚁不用等红绿灯，自己就能认路、换路、绕路——这就是用户态调度，切换只需 200ns。大象需要交警（内核）指挥才能通过十字路口，每次切换都要找交警报备（陷入内核），成本高了 50 倍。</span>
+    </div>
+  </div>
+</section>
+
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">📋</span>
+    <div class="metaphor-title">G = 任务单</div>
+    <div class="metaphor-desc">每只蚂蚁(goroutine)领一张任务单，带着任务出发</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">🧑‍🔧</span>
+    <div class="metaphor-title">M = 搬运工</div>
+    <div class="metaphor-desc">真正干活的 OS 线程，一次只能执行一个任务</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">🏗️</span>
+    <div class="metaphor-title">P = 工作台</div>
+    <div class="metaphor-desc">搬运工的工作站，数量 = GOMAXPROCS = CPU 核数</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">⚡</span>
+    <div class="metaphor-title">2KB vs 1MB</div>
+    <div class="metaphor-desc">蚂蚁体重 vs 大象体重，轻 500 倍的起步成本</div>
+  </div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>Goroutine 是 Go 语言中的轻量级用户态线程（协程），由 Go 运行时（runtime）管理和调度，而非操作系统内核。在代码层面只需 <code>go func()</code> 即可启动一个新的 goroutine。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>解决高并发场景下线程切换开销大的问题。OS 线程切换需要陷入内核态，保存/恢复大量寄存器，上下文切换约 1-10μs；而 goroutine 切换仅在用户态完成，约 200ns，快 50 倍以上。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>让开发者以同步的编码方式（顺序写代码）享受异步的执行效果（高并发），不必手动管理线程池、回调地狱。Go 的哲学：不要通过共享内存来通信，而要通过通信来共享内存。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>Goroutine 初始栈仅 2KB 且可动态伸缩（最大 1GB），而 OS 线程栈固定 1-8MB。Goroutine 由 GMP 模型调度：G=Goroutine 任务，M=OS 线程（Machine），P=逻辑处理器（Processor）。Go 运行时在用户态完成 goroutine 的创建、调度、切换，不经过内核。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① Goroutine 泄漏：goroutine 阻塞在 channel 或锁上永不解绑（如往已关闭的 channel 写数据）；② 调度不可控：goroutine 的执行顺序由运行时决定，不保证公平性；③ 缺乏优先级：所有 goroutine 平等，无优先级调度；④ 调试困难：大量 goroutine 时定位死锁/泄漏需要 pprof 工具链。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① 使用 context 控制 goroutine 生命周期（超时取消）；② defer + recover 避免 panic 导致泄漏；③ 用 pprof 的 goroutine profile 定期检查数量；④ goleak 等工具在测试中检测泄漏；⑤ 使用 errgroup 管理一组 goroutine 的协同退出。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>HTTP Server 每个请求自动在一个 goroutine 中处理；微服务中每个 RPC 调用可起 goroutine 并发请求多个下游；扇出/扇入模式（fan-out/fan-in）用 goroutine+channel 分发任务收集结果；定时任务用 <code>time.AfterFunc</code> 在 goroutine 中异步执行。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Goroutine 是 Go 的轻量级协程。它和线程最大区别是：①初始栈只有 2KB，线程是 1MB；②调度在用户态，不陷入内核；③所以创建和切换极快，可以轻松跑百万个。底层用 GMP 模型：G 是协程、M 是线程、P 是调度器，P 的数量由 GOMAXPROCS 控制。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"协程就是轻量级线程"（没解释"轻"在哪）</li>
+        <li>"goroutine 比线程快"（没量化，没解释原因）</li>
+        <li>"goroutine 是 Go 自己实现的线程"（概念混淆）</li>
+        <li>"用 go 关键字创建就行"（停在这里等于没答）</li>
+        <li>"协程不需要锁"（完全不正确，共享数据仍需同步）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"goroutine 是用户态协程，初始栈 2KB，由 Go 运行时调度"</li>
+        <li>"goroutine 切换约 200ns，OS 线程切换约 1-10μs，快 50 倍"</li>
+        <li>"goroutine ≠ 线程，多个 goroutine 复用少量 OS 线程（GMP 模型）"</li>
+        <li>"<code>go f()</code> 创建后交给 GMP，由 P 本地队列调度执行"</li>
+        <li>"goroutine 间用 channel 通信，这是 CSP 并发模型"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">🦍 goroutine</div>
+    <div class="branch">├─ <span class="arrow">→</span> 为何轻量？</div>
+    <div class="leaf">│  ├─ 初始栈 2KB（线程 1MB）</div>
+    <div class="leaf">│  ├─ 用户态调度（不陷入内核）</div>
+    <div class="leaf">│  └─ 创建仅需分配 gobuf + 栈，无系统调用</div>
+    <div class="branch">├─ <span class="arrow">→</span> GMP 调度模型</div>
+    <div class="leaf">│  ├─ G = Goroutine（任务）</div>
+    <div class="leaf">│  ├─ M = Machine（OS 线程，真正执行）</div>
+    <div class="leaf">│  └─ P = Processor（逻辑处理器，持有 runq）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 工作窃取（Work Stealing）</div>
+    <div class="leaf">│  ├─ 当前 P 的 runq 为空时</div>
+    <div class="leaf">│  ├─ 从其他 P 的 runq 尾部窃取一半 goroutine</div>
+    <div class="leaf">│  └─ 减少全局队列锁竞争，均衡负载</div>
+    <div class="branch">├─ <span class="arrow">→</span> 抢占式调度（Go 1.14+）</div>
+    <div class="leaf">│  ├─ 基于信号的异步抢占</div>
+    <div class="leaf">│  ├─ sysmon 线程检测运行超过 10ms 的 goroutine</div>
+    <div class="leaf">│  └─ 发送 SIGURG 信号强制让出 CPU</div>
+    <div class="branch">└─ <span class="arrow">→</span> 与 OS 线程的区别</div>
+    <div class="leaf">   ├─ 调度层面：用户态 vs 内核态</div>
+    <div class="leaf">   ├─ 栈大小：2KB 动态伸缩 vs 1-8MB 固定</div>
+    <div class="leaf">   ├─ 创建数量：百万级 vs 几千级</div>
+    <div class="leaf">   └─ 上下文切换：~200ns vs ~1-10μs</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"2KB 栈 = 蚂蚁重量，OS 线程 1MB 栈 = 大象。一只蚂蚁轻轻松松踩上去，百万只蚂蚁同时干活也不挤 —— goroutine 就是这样在用户态轻装上阵。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 说出 goroutine 初始栈大小（2KB）和线程栈大小（1MB）的对比</li>
+    <li><input type="checkbox"> 解释"用户态调度"的含义（不陷入内核，runtime 在用户态完成切换）</li>
+    <li><input type="checkbox"> 画出 GMP 三者关系图并解释各自职责</li>
+    <li><input type="checkbox"> 解释工作窃取（Work Stealing）的动机和流程</li>
+    <li><input type="checkbox"> 说明 Go 1.14 抢占式调度的关键改进（基于信号，解决死循环占用 CPU）</li>
+    <li><input type="checkbox"> 举例 3 个 goroutine 实际使用场景（HTTP Server、扇出/扇入、定时任务）</li>
+    <li><input type="checkbox"> 能在一句话内总结："用户态协程，初始 2KB 栈，GMP 调度，百万并发"</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

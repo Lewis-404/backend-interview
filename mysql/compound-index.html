@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>联合索引与最左前缀 — MySQL面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="index.html" class="mysql-link active">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb">
+    <a href="../index.html">首页</a> &raquo;
+    <a href="index.html">MySQL</a> &raquo;
+    <span>#07</span>
+  </div>
+  <h1>联合索引与最左前缀</h1>
+  <span class="q-number">TOP 07 ⭐⭐⭐⭐⭐</span>
+</header>
+
+<div class="summary-box anim-scale">
+  <p class="big-conclusion">联合索引按定义顺序组织B+Tree，遵循最左前缀原则——查询条件必须从索引第一列开始且不能跳过中间列；索引下推(ICP)在引擎层过滤减少回表；覆盖索引直接避免回表</p>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 多层书架</div>
+  <div class="story-title">跳过楼层直接找"所有 3 号书架的书"？那你得跑遍整栋楼</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🏢</div>
+    <div><strong style="color:var(--accent)">场景：联合索引 = 按楼层→书架号→书编号排列</strong><br><span style="color:var(--text-secondary)">idx(floor, shelf, book_id)就像图书馆的"楼层→书架→书编号"体系。每层内部按书架排，每个书架内部按编号排——三级定位精准高效</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🤷</div>
+    <div><strong style="color:var(--accent)">场景：跳过楼层(第一列) = 整个体系崩塌</strong><br><span style="color:var(--text-secondary)">你说"找所有3号书架上的书"——完蛋，3号书架在每层都有！必须跑遍所有楼层才能找完。跳过第一列就像跳过楼层号，索引直接失效</span></div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🧹</div>
+    <div><strong style="color:var(--accent)">场景：索引下推(ICP) = 书架管理员先帮你过滤</strong><br><span style="color:var(--text-secondary)">你说"2楼→书架随便→但要编号>500的书"。管理员在书架上就帮你过滤掉≤500的，只把符合条件的递给你——你少跑腿，效率大增</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-600">
+    <div class="scene-icon">⚠️</div>
+    <div><strong style="color:var(--accent)">场景：范围查询 = 电梯只能到某层，后面靠自己</strong><br><span style="color:var(--text-secondary)">idx(floor, shelf, book_id)，WHERE floor=2 AND shelf>5 AND book_id=100——电梯带你到2楼5号书架后，book_id=100只能自己一个一个翻。范围查询会中断后续列的索引利用</span></div>
+  </div>
+</section>
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100"><span class="metaphor-emoji">🏢</span><div class="metaphor-title">最左前缀 = 从第一层找</div><div class="metaphor-desc">必须从楼层开始，不能跳过直接说书架号</div></div>
+  <div class="metaphor-card anim-fade-up delay-200"><span class="metaphor-emoji">🚫</span><div class="metaphor-title">索引失效 = 跳过楼层</div><div class="metaphor-desc">跳过首列=跑遍每层找同名书架=全库扫描</div></div>
+  <div class="metaphor-card anim-fade-up delay-300"><span class="metaphor-emoji">🧹</span><div class="metaphor-title">ICP = 管理员预过滤</div><div class="metaphor-desc">引擎层先筛一遍，减少传到Server层的数据</div></div>
+  <div class="metaphor-card anim-fade-up delay-400"><span class="metaphor-emoji">🛗</span><div class="metaphor-title">范围查询 = 电梯停运</div><div class="metaphor-desc">范围条件后，后续列只能自己走，索引用不上</div></div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step"><h4>Step 1 — 是什么</h4><p>联合索引是在多个列上共同创建索引，B+Tree按(col1, col2, col3)的顺序排列数据：先按col1排→col1相同按col2排→col2相同按col3排</p></div>
+    <div class="step"><h4>Step 2 — 为什么</h4><p>单列索引无法同时加速多个列的查询。WHERE a=1 AND b=2用两个单列索引不如一个(a,b)联合索引高效——后者一次定位，前者需要index merge</p></div>
+    <div class="step"><h4>Step 3 — 解决的核心问题</h4><p>多条件查询的性能优化。还能利用索引有序性消除filesort（ORDER BY走索引），以及实现覆盖索引避免回表</p></div>
+    <div class="step"><h4>Step 4 — 核心原理</h4><p>最左前缀：查询条件必须从索引最左边的列开始。idx(a,b,c)能加速(a)/(a,b)/(a,b,c)，但不能加速(b)或(b,c)或(c)——因为B+Tree是按a优先排序的</p></div>
+    <div class="step"><h4>Step 5 — 缺点/局限</h4><p>索引列越多写入越慢；占用空间大；设计不当的话索引选择性低（比如把status放在第一列，status只有0/1两个值，索引几乎没用）；范围查询会中断索引使用</p></div>
+    <div class="step"><h4>Step 6 — 如何解决</h4><p>高选择性列放最左；等值条件放前、范围条件放后；利用覆盖索引避免回表；MySQL 5.6+ ICP可减少回表</p></div>
+    <div class="step"><h4>Step 7 — 实际落地</h4><p>典型设计：等值查询列按选择性(区分度)从高到低排列；WHERE a=? AND b>? AND c=?→索引(a,c,b)让范围查询不在中间断；explain看key_len确认索引用了几列</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">联合索引最核心的就是"字典排序原理"。创建idx(a,b,c)后，B+Tree里的数据先按a排序，a相同的按b排序，b相同的按c排序。所以查询必须从a开始——就像查字典要先找拼音首字母。跳过a直接查b，相当于"给我所有拼音第二个字母是'e'的字"，没法利用索引的有序性。但a=1 AND c=3可以用——因为a走了索引定位，c可以通过ICP在引擎层过滤，只是用不到c的排序。范围查询(>/BETWEEN/LIKE)会中断后续列的索引利用：a=1 AND b>2 AND c=3只用到(a,b)，c失效。</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before"><h4>❌ 错误表达</h4>
+      <ul>
+        <li>"联合索引就是把几个字段拼起来当key" — 不是拼起来，是分层排序，每层独立</li>
+        <li>"最左前缀就是查询条件最左边的那一列" — 是索引定义的顺序，不是WHERE里写的顺序</li>
+        <li>"范围查询不影响后续列" — 范围查询后索引中断，后续列无法使用索引排序</li>
+        <li>"WHERE a=? OR b=? 也能走联合索引" — OR连接不同列不走联合索引（可能走index merge，但不是单个索引能覆盖的）</li>
+      </ul></div>
+    <div class="col after"><h4>✅ 正确表达</h4>
+      <ul>
+        <li>"最左前缀是<strong>索引定义</strong>的最左，不是SQL中WHERE的最左。SELECT ... WHERE b=1 AND a=2 → 优化器会调整为a=2 AND b=1，一样用索引"</li>
+        <li>"范围查询后的列<strong>无法走索引</strong>：idx(a,b,c)，WHERE a=1 AND b>2 AND c=3 → 实际只用到了(a,b)，c失效"</li>
+        <li>"<strong>ICP(索引下推)</strong>：a=1 AND c=3，引擎层先用a定位→再在引擎层过滤c→减少回Server层的行数。这是5.6+的优化"</li>
+        <li>"设计技巧：<strong>等值在前、范围在后、高频查左、区分度高的优先</strong>"</li>
+      </ul></div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">联合索引 & 最左前缀</div>
+    <div class="branch">├─ <span class="arrow">→</span> 最左前缀原则的具体规则？</div>
+    <div class="leaf">│  └─ idx(a,b,c)：全匹配/匹配a/匹配a+b/匹配a+b+c ✓；匹配b/匹配c/匹配b+c ✗。匹配a+c→只用a定位，ICP辅助过滤c但不能用c的排序</div>
+    <div class="branch">├─ <span class="arrow">→</span> 为什么不能跳过中间列？</div>
+    <div class="leaf">│  └─ B+Tree按(a,b,c)分层排序。b在每层a内部是有序的，但跨a时b无序。跳过a直接查b→扫描所有a段→无法利用有序性→全索引扫描</div>
+    <div class="branch">├─ <span class="arrow">→</span> 索引下推(ICP)怎么工作？</div>
+    <div class="leaf">│  └─ MySQL 5.6+。无ICP:引擎返回所有a=1的行→Server层过滤c=3。有ICP:引擎层直接过滤c=3→返回行数大幅减少→减少回Server层</div>
+    <div class="branch">├─ <span class="arrow">→</span> 索引失效的具体场景？</div>
+    <div class="leaf">│  └─ ①函数(WHERE YEAR(col)=2024) ②隐式转换(varchar列用数字查→全表扫) ③LIKE '%x'前缀% ④OR混杂不同列 ⑤范围查询后中断 ⑥!=/<>/NOT IN ⑦ORDER BY使用不同索引列</div>
+    <div class="branch">├─ <span class="arrow">→</span> 覆盖索引怎么设计？</div>
+    <div class="leaf">│  └─ 把SELECT和WHERE涉及的列都放进一个索引→Extra显示Using index。例如频繁SELECT name,age WHERE id>100→建idx(id,name,age)覆盖索引</div>
+    <div class="branch">├─ <span class="arrow">→</span> 如何选择联合索引的列顺序？</div>
+    <div class="leaf">│  └─ ①选择性(区分度)高的放左边；②等值查询列放左边、范围查询列放右边；③高频查询列优先；④ORDER BY/GROUP BY尽量和索引对应</div>
+    <div class="branch">└─ <span class="arrow">→</span> ORDER BY 如何利用联合索引？</div>
+    <div class="leaf">   └─ ORDER BY列顺序必须和索引左前缀一致。idx(a,b)：ORDER BY a,b ✓；ORDER BY b,a ✗。WHERE a=1 ORDER BY b→可用索引排序(等值后有序)，避免filesort</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">联合索引像<strong>多层书架</strong>：按"楼层→书架号→书编号"排列。找书必须从楼层开始——跳过楼层直接说"所有3号书架上的书"，得跑遍每一层（索引失效）。但"2楼→某书架→书编号"就能精准定位（最左前缀匹配）</div>
+  <div class="hook-text" style="margin-top:0.8rem;font-size:0.9rem;opacity:0.85">最左 — 必须从索引定义的第一列开始 | 中断 — 范围查询后索引中断 | ICP — 5.6+ 引擎层预过滤 | 覆盖 — Using index 零回表</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+<li><input type="checkbox"> 能画出 B+Tree 中 idx(a,b,c) 的数据排列结构</li>
+    <li><input type="checkbox"> 能列举至少3个能用/不能用联合索引的 WHERE 条件组合</li>
+    <li><input type="checkbox"> 能解释 ICP 和没有 ICP 时的执行流程区别</li>
+    <li><input type="checkbox"> 能说明范围查询为什么中断索引（B+Tree 有序性角度）</li>
+    <li><input type="checkbox"> 能根据业务查询模式设计一个联合索引并说明列顺序理由</li>
+    <li><input type="checkbox"> 能通过 EXPLAIN 的 key_len 判断联合索引用到了哪几列</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

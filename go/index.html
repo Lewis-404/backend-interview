@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Go 面试专题 — Go 后端面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="index.html" class="go-link active">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+<div class="hero">
+  <div class="icon">🔷</div>
+  <h1 style="background:linear-gradient(135deg,#38bdf8,#00ADD8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Go 面试专题</h1>
+  <p class="subtitle">goroutine · channel · GMP · context · defer · slice · map · GC · 逃逸分析</p>
+</div>
+<div class="summary-box">
+  <div class="label">🎯 Go 面试核心</div>
+  <div class="one-liner" style="font-size:18px">并发模型(GMP) + 内存管理(GC/逃逸) + 语言特性(channel/context/defer/slice) = Go 后端面试三大支柱</div>
+</div>
+<div class="cat-header">
+  <span class="cat-icon" style="color:var(--go-blue)">🔷</span>
+  <h2 style="color:var(--go-blue)">9 个核心主题</h2>
+  <span class="cat-tag go-tag">第一梯队 P0</span>
+</div>
+<div class="card-grid">
+  <a href="goroutine.html" class="card"><div class="card-num">GO-01</div><h3>Goroutine 为什么轻量？</h3><p>2KB栈 · 用户态调度 · 百万级并发</p></a>
+  <a href="channel.html" class="card"><div class="card-num">GO-02</div><h3>Channel 底层原理</h3><p>hchan结构 · 环形队列 · CSP模型</p></a>
+  <a href="gmp.html" class="card"><div class="card-num">GO-03</div><h3>GMP 调度模型</h3><p>G/M/P · 工作窃取 · 抢占式调度</p></a>
+  <a href="context.html" class="card"><div class="card-num">GO-04</div><h3>Context 上下文</h3><p>超时控制 · 取消传播 · 值传递</p></a>
+  <a href="defer.html" class="card"><div class="card-num">GO-05</div><h3>Defer 执行顺序</h3><p>LIFO栈 · 参数预计算 · recover</p></a>
+  <a href="slice.html" class="card"><div class="card-num">GO-06</div><h3>Slice 底层结构</h3><p>ptr+len+cap · 扩容机制 · 共享底层</p></a>
+  <a href="map-concurrent.html" class="card"><div class="card-num">GO-07</div><h3>Map 并发安全</h3><p>fatal error · sync.RWMutex · sync.Map</p></a>
+  <a href="gc.html" class="card"><div class="card-num">GO-08</div><h3>GC 垃圾回收</h3><p>三色标记 · 混合写屏障 · STW优化</p></a>
+  <a href="escape.html" class="card"><div class="card-num">GO-09</div><h3>内存逃逸分析</h3><p>栈vs堆 · 逃逸场景 · 检测优化</p></a>
+</div>
+<div class="page-footer">来财出品 · Go 后端面试训练营 · 2026.05.24</div>
+</div>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

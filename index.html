@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧧 Go 后端面试训练营 — 来财出品</title>
+<link rel="stylesheet" href="css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="./icon-192.png">
+</head>
+<body>
+
+<nav class="top-nav">
+  <a href="index.html" class="nav-home active">🧧 面试训练营</a>
+  <a href="go/index.html" class="go-link">Go</a>
+  <a href="mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="redis/index.html" class="redis-link">Redis</a>
+  <a href="linux/index.html" class="linux-link">Linux</a>
+  <a href="mq/index.html" class="mq-link">MQ</a>
+  <a href="docker/index.html" class="docker-link">Docker</a>
+  <a href="k8s/index.html" class="k8s-link">K8s</a>
+  <a href="cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="system-design/index.html" class="sd-link">系统设计</a>
+  <a href="ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<div class="hero">
+  <div class="icon">🧧</div>
+  <h1>Go 后端面试强化训练营</h1>
+  <p class="subtitle">知识体系化 × 结构化表达 × 追问树记忆 — 来财出品</p>
+</div>
+
+<!-- 核心方法论 -->
+<div class="summary-box">
+  <div class="label">🎯 核心方法论</div>
+  <div class="one-liner">"先一句话总结，再展开细节" → 7 步回答模板 → 追问树 → 稳定输出</div>
+</div>
+
+<div class="section">
+  <h3><span class="emoji">📋</span> 训练规则</h3>
+  <div class="key-points">
+    <div class="key-point"><span class="kp-num">1</span> 凡回答必先总结</div>
+    <div class="key-point"><span class="kp-num">2</span> 用 7 步模板组织语言</div>
+    <div class="key-point"><span class="kp-num">3</span> 60 秒讲清一个技术点</div>
+    <div class="key-point"><span class="kp-num">4</span> 每个主题建立追问树</div>
+  </div>
+</div>
+
+<!-- 第一梯队 -->
+<div class="cat-header">
+  <span class="cat-icon">🔥</span>
+  <h2>第一梯队 — 必须滚瓜烂熟</h2>
+  <span class="cat-tag go-tag">P0</span>
+</div>
+
+<!-- Go -->
+<div class="cat-header" style="margin-top:24px;">
+  <span class="cat-icon" style="color:var(--go-blue)">🔷</span>
+  <h2 style="color:var(--go-blue)">Go</h2>
+  <span class="cat-tag go-tag">9 个主题</span>
+</div>
+<div class="card-grid">
+  <a href="go/goroutine.html" class="card">
+    <div class="card-num">GO-01</div>
+    <h3>Goroutine 是什么？为什么轻量？</h3>
+    <p>协程 vs 线程，GMP 调度模型入门</p>
+  </a>
+  <a href="go/channel.html" class="card">
+    <div class="card-num">GO-02</div>
+    <h3>Channel 底层原理与使用场景</h3>
+    <p>无缓冲 vs 有缓冲，select 多路复用</p>
+  </a>
+  <a href="go/gmp.html" class="card">
+    <div class="card-num">GO-03</div>
+    <h3>GMP 调度模型详解</h3>
+    <p>G/M/P 三者关系，抢占式调度，工作窃取</p>
+  </a>
+  <a href="go/context.html" class="card">
+    <div class="card-num">GO-04</div>
+    <h3>Context 上下文：超时、取消、传值</h3>
+    <p>context.WithCancel/Timeout/Value 最佳实践</p>
+  </a>
+  <a href="go/defer.html" class="card">
+    <div class="card-num">GO-05</div>
+    <h3>Defer 执行顺序与常见坑</h3>
+    <p>LIFO 栈，参数预计算，recover 配合</p>
+  </a>
+  <a href="go/slice.html" class="card">
+    <div class="card-num">GO-06</div>
+    <h3>Slice 底层结构与扩容机制</h3>
+    <p>array/len/cap，append 扩容策略</p>
+  </a>
+  <a href="go/map-concurrent.html" class="card">
+    <div class="card-num">GO-07</div>
+    <h3>Map 并发安全问题</h3>
+    <p>fatal error: concurrent map writes，sync.Map</p>
+  </a>
+  <a href="go/gc.html" class="card">
+    <div class="card-num">GO-08</div>
+    <h3>Go GC 垃圾回收机制</h3>
+    <p>三色标记 + 混合写屏障，STW 优化</p>
+  </a>
+  <a href="go/escape.html" class="card">
+    <div class="card-num">GO-09</div>
+    <h3>内存逃逸分析</h3>
+    <p>栈 vs 堆，逃逸场景，pprof 分析</p>
+  </a>
+</div>
+
+<!-- MySQL -->
+<div class="cat-header" style="margin-top:24px;">
+  <span class="cat-icon" style="color:var(--mysql-orange)">🟠</span>
+  <h2 style="color:var(--mysql-orange)">MySQL</h2>
+  <span class="cat-tag mysql-tag">10 个主题</span>
+</div>
+<div class="card-grid">
+  <a href="mysql/index-btree.html" class="card">
+    <div class="card-num">MY-01</div>
+    <h3>索引为什么用 B+Tree？</h3>
+    <p>B+Tree vs B-Tree vs Hash vs 跳表</p>
+  </a>
+  <a href="mysql/mvcc.html" class="card">
+    <div class="card-num">MY-02</div>
+    <h3>MVCC 多版本并发控制</h3>
+    <p>Undo Log, ReadView, RC vs RR</p>
+  </a>
+  <a href="mysql/transaction.html" class="card">
+    <div class="card-num">MY-03</div>
+    <h3>事务 ACID 与隔离级别</h3>
+    <p>脏读/不可重复读/幻读，MVCC + 锁解决</p>
+  </a>
+  <a href="mysql/locks.html" class="card">
+    <div class="card-num">MY-04</div>
+    <h3>MySQL 锁机制全解</h3>
+    <p>行锁/表锁/间隙锁/临键锁/意向锁</p>
+  </a>
+  <a href="mysql/explain.html" class="card">
+    <div class="card-num">MY-05</div>
+    <h3>Explain 执行计划解读</h3>
+    <p>type/rows/Extra/key_len，实战优化</p>
+  </a>
+  <a href="mysql/slow-query.html" class="card">
+    <div class="card-num">MY-06</div>
+    <h3>慢查询优化实战</h3>
+    <p>慢查询日志，profiling，常见优化策略</p>
+  </a>
+  <a href="mysql/compound-index.html" class="card">
+    <div class="card-num">MY-07</div>
+    <h3>联合索引与最左前缀</h3>
+    <p>索引下推，索引覆盖，索引失效场景</p>
+  </a>
+  <a href="mysql/back-table.html" class="card">
+    <div class="card-num">MY-08</div>
+    <h3>回表与覆盖索引</h3>
+    <p>二级索引 → 聚簇索引，如何避免回表</p>
+  </a>
+  <a href="mysql/redo-undo.html" class="card">
+    <div class="card-num">MY-09</div>
+    <h3>Redo Log & Undo Log & Binlog</h3>
+    <p>WAL，crash recovery，两阶段提交</p>
+  </a>
+  <a href="mysql/subquery-join.html" class="card">
+    <div class="card-num">MY-10</div>
+    <h3>子查询 vs JOIN 优化</h3>
+    <p>驱动表选择，NLJ vs BNL，派生表</p>
+  </a>
+</div>
+
+<!-- Redis -->
+<div class="cat-header" style="margin-top:24px;">
+  <span class="cat-icon" style="color:var(--redis-red)">🔴</span>
+  <h2 style="color:var(--redis-red)">Redis</h2>
+  <span class="cat-tag redis-tag">10 个主题</span>
+</div>
+<div class="card-grid">
+  <a href="redis/cache-penetration.html" class="card">
+    <div class="card-num">RD-01</div>
+    <h3>缓存穿透</h3>
+    <p>布隆过滤器，缓存空值，参数校验</p>
+  </a>
+  <a href="redis/cache-breakdown.html" class="card">
+    <div class="card-num">RD-02</div>
+    <h3>缓存击穿</h3>
+    <p>热点 Key 过期，互斥锁，逻辑过期</p>
+  </a>
+  <a href="redis/cache-avalanche.html" class="card">
+    <div class="card-num">RD-03</div>
+    <h3>缓存雪崩</h3>
+    <p>批量过期，TTL 随机化，多级缓存，限流</p>
+  </a>
+  <a href="redis/persistence.html" class="card">
+    <div class="card-num">RD-04</div>
+    <h3>持久化：RDB vs AOF</h3>
+    <p>fork + COW，AOF rewrite，混合持久化</p>
+  </a>
+  <a href="redis/replication.html" class="card">
+    <div class="card-num">RD-05</div>
+    <h3>主从复制原理</h3>
+    <p>全量同步 vs 增量同步，replication buffer</p>
+  </a>
+  <a href="redis/sentinel.html" class="card">
+    <div class="card-num">RD-06</div>
+    <h3>哨兵模式详解</h3>
+    <p>主观下线 vs 客观下线，Leader 选举</p>
+  </a>
+  <a href="redis/cluster.html" class="card">
+    <div class="card-num">RD-07</div>
+    <h3>Cluster 集群原理</h3>
+    <p>哈希槽 16384，MOVED/ASK，Gossip 协议</p>
+  </a>
+  <a href="redis/distributed-lock.html" class="card">
+    <div class="card-num">RD-08</div>
+    <h3>分布式锁实现</h3>
+    <p>SETNX + Lua，RedLock，看门狗机制</p>
+  </a>
+  <a href="redis/bigkey.html" class="card">
+    <div class="card-num">RD-09</div>
+    <h3>BigKey & 热 Key 问题</h3>
+    <p>危害分析，发现手段，拆分策略</p>
+  </a>
+  <a href="redis/why-fast.html" class="card">
+    <div class="card-num">RD-10</div>
+    <h3>Redis 为什么快？</h3>
+    <p>内存 + 单线程 + IO 多路复用 + 高效数据结构</p>
+  </a>
+</div>
+
+<!-- Linux -->
+<div class="cat-header" style="margin-top:24px;">
+  <span class="cat-icon">🐧</span>
+  <h2>Linux</h2>
+  <span class="cat-tag docker-tag">8 个主题</span>
+</div>
+<div class="card-grid">
+  <a href="linux/top.html" class="card"><div class="card-num">LX-01</div><h3>top 命令详解</h3><p>load average, CPU, MEM, 进程状态</p></a>
+  <a href="linux/ps.html" class="card"><div class="card-num">LX-02</div><h3>ps 进程管理</h3><p>进程状态，ps aux vs ps -ef</p></a>
+  <a href="linux/grep.html" class="card"><div class="card-num">LX-03</div><h3>grep 文本搜索</h3><p>正则匹配，常用参数，管道组合</p></a>
+  <a href="linux/awk.html" class="card"><div class="card-num">LX-04</div><h3>awk 文本处理</h3><p>列操作，条件过滤，统计计算</p></a>
+  <a href="linux/netstat.html" class="card"><div class="card-num">LX-05</div><h3>netstat / ss 网络诊断</h3><p>端口监听，连接状态，TIME_WAIT</p></a>
+  <a href="linux/lsof.html" class="card"><div class="card-num">LX-06</div><h3>lsof 文件描述符</h3><p>进程打开的文件、端口、连接</p></a>
+  <a href="linux/tail.html" class="card"><div class="card-num">LX-07</div><h3>tail & 日志排查</h3><p>tail -f, 日志切割, grep 组合</p></a>
+  <a href="linux/shell.html" class="card"><div class="card-num">LX-08</div><h3>Shell 脚本实战</h3><p>变量/循环/函数/错误处理</p></a>
+</div>
+
+<!-- MQ -->
+<div class="cat-header" style="margin-top:24px;">
+  <span class="cat-icon" style="color:var(--mq-purple)">🟣</span>
+  <h2 style="color:var(--mq-purple)">消息队列 MQ</h2>
+  <span class="cat-tag mq-tag">4 个主题</span>
+</div>
+<div class="card-grid">
+  <a href="mq/repeat-consume.html" class="card"><div class="card-num">MQ-01</div><h3>消息重复消费与幂等性</h3><p>为什么重复？幂等 Key，数据库唯一约束</p></a>
+  <a href="mq/message-loss.html" class="card"><div class="card-num">MQ-02</div><h3>消息丢失问题</h3><p>生产/存储/消费三阶段，ACK 机制</p></a>
+  <a href="mq/idempotence.html" class="card"><div class="card-num">MQ-03</div><h3>幂等性设计</h3><p>唯一 ID + 状态机，Redis SetNX，DB 去重表</p></a>
+  <a href="mq/backlog.html" class="card"><div class="card-num">MQ-04</div><h3>消息积压处理</h3><p>扩容消费者，降级逻辑，死信队列</p></a>
+</div>
+
+<!-- 第二梯队 -->
+<div class="cat-header" style="margin-top:40px;">
+  <span class="cat-icon">💪</span>
+  <h2>第二梯队 — 加分项</h2>
+  <span class="cat-tag cicd-tag">P1</span>
+</div>
+
+<div class="card-grid">
+  <a href="docker/dockerfile.html" class="card"><div class="card-num">DK-01</div><h3>Dockerfile 最佳实践</h3><p>多阶段构建，层级缓存，CMD vs ENTRYPOINT</p></a>
+  <a href="docker/image.html" class="card"><div class="card-num">DK-02</div><h3>镜像分层与优化</h3><p>Copy-on-Write，UnionFS，镜像瘦身</p></a>
+  <a href="docker/container.html" class="card"><div class="card-num">DK-03</div><h3>容器生命周期</h3><p>create/start/stop/kill/rm，PID 1 问题</p></a>
+  <a href="docker/volume.html" class="card"><div class="card-num">DK-04</div><h3>Volume 数据卷</h3><p>bind mount vs volume vs tmpfs</p></a>
+  <a href="docker/network.html" class="card"><div class="card-num">DK-05</div><h3>Docker 网络模式</h3><p>bridge/host/none/overlay</p></a>
+  <a href="k8s/pod.html" class="card"><div class="card-num">K8-01</div><h3>Pod 详解</h3><p>最小调度单元，Sidecar 模式，共享网络</p></a>
+  <a href="k8s/deployment.html" class="card"><div class="card-num">K8-02</div><h3>Deployment 滚动更新</h3><p>ReplicaSet，RollingUpdate，回滚</p></a>
+  <a href="k8s/service.html" class="card"><div class="card-num">K8-03</div><h3>Service 服务发现</h3><p>ClusterIP/NodePort/LoadBalancer</p></a>
+  <a href="k8s/ingress.html" class="card"><div class="card-num">K8-04</div><h3>Ingress 流量入口</h3><p>Ingress Controller，TLS，路由规则</p></a>
+  <a href="cicd/pipeline.html" class="card"><div class="card-num">CI-01</div><h3>CI/CD 流水线</h3><p>提交→测试→构建→镜像→部署</p></a>
+</div>
+
+<!-- 系统设计 -->
+<div class="cat-header" style="margin-top:40px;">
+  <span class="cat-icon" style="color:var(--system-teal)">🏗️</span>
+  <h2 style="color:var(--system-teal)">系统设计</h2>
+  <span class="cat-tag sd-tag">6 个场景</span>
+</div>
+<div class="card-grid">
+  <a href="system-design/seckill.html" class="card"><div class="card-num">SD-01</div><h3>秒杀系统设计</h3><p>CDN→限流→队列→Redis→DB，层层削峰</p></a>
+  <a href="system-design/im.html" class="card"><div class="card-num">SD-02</div><h3>IM 即时通讯系统</h3><p>WebSocket，长连接，消息可靠投递</p></a>
+  <a href="system-design/payment.html" class="card"><div class="card-num">SD-03</div><h3>支付系统设计</h3><p>幂等，对账，分布式事务，最终一致性</p></a>
+  <a href="system-design/leaderboard.html" class="card"><div class="card-num">SD-04</div><h3>排行榜系统</h3><p>Redis Sorted Set，分段排行榜，实时+归档</p></a>
+  <a href="system-design/shorturl.html" class="card"><div class="card-num">SD-05</div><h3>短链系统</h3><p>Base62，发号器，301 vs 302，缓存策略</p></a>
+  <a href="system-design/push.html" class="card"><div class="card-num">SD-06</div><h3>推送系统设计</h3><p>长连接/轮询/厂商通道，消息可靠性</p></a>
+</div>
+
+<!-- AI 工程 -->
+<div class="cat-header" style="margin-top:40px;">
+  <span class="cat-icon" style="color:var(--ai-violet)">🤖</span>
+  <h2 style="color:var(--ai-violet)">AI 工程能力包装</h2>
+  <span class="cat-tag ai-tag">加分项</span>
+</div>
+<div class="card-grid">
+  <a href="ai-engineering/packaging.html" class="card">
+    <div class="card-num">AI-01</div>
+    <h3>AI 工程能力表达</h3>
+    <p>从"我会用 AI"到"AI 辅助研发融入工程流程"</p>
+  </a>
+</div>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24<br>
+  <span style="font-size:12px">核心原则：先总结再展开 · 7 步模板 · 追问树 · 60 秒表达</span>
+</div>
+
+</div>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

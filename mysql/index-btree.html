@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>索引为什么用B+Tree？ — MySQL面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="index.html" class="mysql-link active">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb">
+    <a href="../index.html">首页</a> &raquo;
+    <a href="index.html">MySQL</a> &raquo;
+    <span>#01</span>
+  </div>
+  <h1>索引为什么用B+Tree？</h1>
+  <span class="q-number">TOP 01 ⭐⭐⭐⭐⭐</span>
+</header>
+
+<div class="summary-box anim-scale">
+  <p class="big-conclusion">MySQL InnoDB选择B+Tree因为：①多叉树降低高度（3-4层存千万数据）②叶子节点链表支持范围查询 ③非叶子不存数据，存更多索引key ④页大小16KB与磁盘预读完美匹配</p>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 图书馆索书系统</div>
+  <div class="story-title">找一本书，为什么 30 秒就能从千万藏书中精准定位？</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🏛️</div>
+    <div><strong style="color:var(--accent)">场景：B+Tree 非叶子节点 = 书架分类牌</strong><br><span style="color:var(--text-secondary)">图书馆每层入口挂分类牌"文学→中国→现代"，只写编号不堆书——和B+Tree非叶子只存key一模一样，一个牌子能指路千万本书</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">📚</div>
+    <div><strong style="color:var(--accent)">场景：B+Tree 叶子节点 = 书架上的书</strong><br><span style="color:var(--text-secondary)">分类牌指到具体书架，上面摆满书——叶子节点存完整数据。找《活着》：文学→中国→现代→第3排第5格，3步直达，千万藏书不超过4层分类</span></div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🔗</div>
+    <div><strong style="color:var(--accent)">场景：B+Tree 叶子链表 = 书架间的绳子</strong><br><span style="color:var(--text-secondary)">每个书架用绳子串起来——要找"所有中国现代文学"，找到第一个书架后顺着绳子一气呵成，不需要回到入口重新找</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-600">
+    <div class="scene-icon">❓</div>
+    <div><strong style="color:var(--accent)">为什么不用 Hash？= 按书名首字母排书</strong><br><span style="color:var(--text-secondary)">Hash像按首字母排书：找《活着》秒定位(H开头)，但找"所有现代小说"就傻了——字母跟年代没关系，得翻遍所有书架，范围查询直接报废</span></div>
+  </div>
+</section>
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100"><span class="metaphor-emoji">🏷️</span><div class="metaphor-title">非叶子节点 = 分类牌</div><div class="metaphor-desc">只写编号不存书，一个牌子指路几千本</div></div>
+  <div class="metaphor-card anim-fade-up delay-200"><span class="metaphor-emoji">📖</span><div class="metaphor-title">叶子节点 = 书架上的书</div><div class="metaphor-desc">存完整数据，查找最终落在这里</div></div>
+  <div class="metaphor-card anim-fade-up delay-300"><span class="metaphor-emoji">🪢</span><div class="metaphor-title">链表 = 绳子</div><div class="metaphor-desc">书架串起来，范围查询拉绳子就行</div></div>
+  <div class="metaphor-card anim-fade-up delay-400"><span class="metaphor-emoji">📏</span><div class="metaphor-title">16KB页 = 书架格子大小</div><div class="metaphor-desc">格子固定，填满最优，空了浪费空间</div></div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step"><h4>Step 1 — 是什么</h4><p>B+Tree是一种多路平衡搜索树，所有数据存储在叶子节点，非叶子节点只存key作为索引路由</p></div>
+    <div class="step"><h4>Step 2 — 为什么</h4><p>数据库索引存储在磁盘上，需要最小化磁盘I/O次数。B+Tree通过"矮胖"结构把千万级数据控制在3-4层，每次查找只需3-4次I/O</p></div>
+    <div class="step"><h4>Step 3 — 解决的核心问题</h4><p>解决大数据量下的快速查找、范围查询、排序需求。等值查询O(logn)，范围查询扫描叶子链表</p></div>
+    <div class="step"><h4>Step 4 — 核心原理</h4><p>每个节点占一页(16KB)，非叶子只存key+子节点指针；叶子存完整数据+前后叶子指针，形成有序双向链表。查找时从根二分定位到叶子</p></div>
+    <div class="step"><h4>Step 5 — 缺点/局限</h4><p>写入时可能触发页分裂，删除时可能页合并，产生额外开销；对类似`LIKE '%keyword'`的后缀模糊查询无法利用索引</p></div>
+    <div class="step"><h4>Step 6 — 如何解决</h4><p>写入性能可通过合理设置填充因子(innodb_fill_factor)、批量insert、使用自增主键来优化页分裂</p></div>
+    <div class="step"><h4>Step 7 — 实际落地</h4><p>建表时选好主键（自增最佳），频繁查询的列建普通索引；避免在索引列上使用函数。核心参数：innodb_page_size=16KB</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">B+Tree是多路平衡搜索树。相比二叉搜索树，它每个节点能存多个key，高度极低——1千万数据只需3层。关键是叶子节点之间用双向链表串联，这让范围查询只需找到起点然后顺着链表扫描，不需要回溯。非叶子节点不存数据，一个16KB页能放更多key，进一步降低高度。所以它是磁盘场景下范围查询+等值查询的最优解。</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before"><h4>❌ 错误表达</h4>
+      <ul>
+        <li>"B+Tree比B-Tree快" — 太笼统，面试官会追问怎么量化</li>
+        <li>"因为数据库都用B+Tree所以用B+Tree" — 循环论证</li>
+        <li>"B+Tree就是二叉树的升级版" — 混淆多叉和二叉</li>
+        <li>"主要是为了排序快" — B+Tree不是为了排序设计的，排序是附带收益</li>
+      </ul></div>
+    <div class="col after"><h4>✅ 正确表达</h4>
+      <ul>
+        <li>"B+Tree的核心优势是<strong>磁盘友好</strong>：多叉结构降低树高，每层对应一次磁盘I/O"</li>
+        <li>"叶子链表让范围查询从O(logn + 扫描行数)降到O(logn)，找到起点就能顺序扫描"</li>
+        <li>"非叶子节点不存数据=一个16KB页能存~1200个key指针，而B-Tree同样页可能只存~200个"</li>
+        <li>"InnoDB把B+Tree和聚簇索引结合：主键B+Tree叶子存完整行，二级索引叶子存主键值"</li>
+      </ul></div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">B+Tree 为什么不用其他结构？</div>
+    <div class="branch">├─ <span class="arrow">→</span> 为什么不用B-Tree？</div>
+    <div class="leaf">│  └─ 数据分散在所有节点 → 范围查询需中序遍历来回跳 → IO不稳定。B+Tree数据全在叶子，扫链表就行</div>
+    <div class="branch">├─ <span class="arrow">→</span> 为什么不用Hash？</div>
+    <div class="leaf">│  └─ 不支持范围查询、排序、LIKE前缀模糊匹配。Hash等值O(1)虽快但用途太窄，无法支撑ORDER BY / BETWEEN / GROUP BY</div>
+    <div class="branch">├─ <span class="arrow">→</span> 为什么不用跳表？</div>
+    <div class="leaf">│  └─ 跳表高度不稳定(log n，实际波动大)，节点间隔不固定，对磁盘预读不友好。B+Tree每页填满，预读命中率高</div>
+    <div class="branch">├─ <span class="arrow">→</span> 为什么不用红黑树？</div>
+    <div class="leaf">│  └─ 二叉结构导致高度=log₂(n)，1000万数据高度≈23层=23次I/O。B+Tree高度≈3，I/O差7倍+</div>
+    <div class="branch">├─ <span class="arrow">→</span> B+Tree如何支持范围查询？</div>
+    <div class="leaf">│  └─ 找到起始叶子节点→顺着next指针顺序扫描→直到超范围。本质是把范围查询转化为"一次定位+一次链表扫描"</div>
+    <div class="branch">└─ <span class="arrow">→</span> 聚簇索引 vs 二级索引 B+Tree区别？</div>
+    <div class="leaf">   └─ 聚簇索引叶子存完整行数据；二级索引叶子只存索引列+主键值。所以二级索引查非索引列需要回表</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">B+Tree像<strong>文件柜目录</strong>：目录卡片只写编号（非叶子节点），实际文件全在抽屉里（叶子层），抽屉之间用绳子串起来（双向链表）——要找连续编号的文件，找到第一个抽屉后顺着绳子拉就行</div>
+  <div class="hook-text" style="margin-top:0.8rem;font-size:0.9rem;opacity:0.85">3~4层 — 千万级数据高度 | 16KB — InnoDB默认页大小 | ~1200 — 一个非叶子页可存key数</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+<li><input type="checkbox"> 能说清 B+Tree 和 B-Tree 的三个核心区别（数据位置、范围查询、I/O次数）</li>
+    <li><input type="checkbox"> 能解释为什么 Hash 索引不能替代 B+Tree 做默认索引</li>
+    <li><input type="checkbox"> 能用页大小(16KB)估算千万数据需要的树层数（3层≈10^7/K≈10^7/1200≈8000叶子→2层非叶子，总共4层）</li>
+    <li><input type="checkbox"> 能讲清楚叶子节点链表和范围查询的关系</li>
+    <li><input type="checkbox"> 能对比红黑树和 B+Tree 在磁盘I/O场景下的性能差距</li>
+    <li><input type="checkbox"> 能用"文件柜"比喻完整描述 B+Tree 结构</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SD-04 排行榜系统 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="index.html" class="sd-link active">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">系统设计</a> &rsaquo; 排行榜系统</div>
+  <h1>🏆 排行榜系统设计</h1>
+  <div class="meta">
+    <span>编号 SD-04</span>
+    <span>分类：数据结构应用</span>
+    <span>难度：⭐⭐⭐</span>
+    <span>频率：中高频</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">排行榜用 Redis Sorted Set（ZADD 更新分数 / ZREVRANGE 查 TopN / ZRANK 查排名）。大规模：分段排行榜（小时/天/月）+ 定时归档 DB。亿万级用户：跳表分段（分数分桶）+ 近似排名（TopN 精确 / 其余近似）。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「游戏厅积分板」看懂排行榜系统</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🏆</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：Sorted Set = 带磁铁的记分牌</strong><br><span style="color:var(--text-secondary)">游戏厅墙上挂着记分牌——每个玩家名字（member）后面跟着分数（score），磁铁可以上下移动。<strong style="color:#fbbf24">ZADD</strong> 就是放一块新磁铁或移动旧磁铁；<strong style="color:#fbbf24">ZINCRBY</strong> 就是给某个磁铁加分数（击杀+10分）；<strong style="color:#fbbf24">ZREVRANGE</strong> 就是看一眼最上面那排（Top 10）。全部 O(log N)，比重新排一条长队快多了。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">🏆</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🛗</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：跳表 = 多层高速公路</strong><br><span style="color:var(--text-secondary)">找"第 500 名是谁"？如果一层层数，要从第 1 名数到第 500 名，O(N) 太慢。跳表就像多层的电梯——从最高层跳过前面 400 人，到中间层跳过 60 人，到底层精确找到第 500 名。每次跳跃都跳过一半的人，最终找到只要 O(log N) 步。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">📅</div>
+    <div>
+      <strong style="color:#a78bfa">场景3：分段排行榜 = 日榜周榜月榜分开算</strong><br><span style="color:var(--text-secondary)">游戏厅有三块白板：今日最高分（日榜）、本周冠军（周榜）、本月王者（月榜）。每天凌晨 0 点，擦掉今天的白板（归档到 MySQL），新建一块空白板给明天用。周榜是汇总 7 天数据；月榜也一样。历史记录查 MySQL，实时榜单看白板（Redis ZSET）。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">🪣</div>
+    <div>
+      <strong style="color:#34d399">场景4：亿万用户分桶 = 分数段分区</strong><br><span style="color:var(--text-secondary)">5 亿人全挤一块记分牌？牌太小写不下。怎么办？<strong style="color:#34d399">分桶</strong>——0-100分放第一块板，101-500分放第二块板，501-2000放第三块板… 查排名时：先定位你在哪个桶，算出桶内排名 + 前面所有桶的总人数 = 你的近似排名。Top 1000 精确，其余近似，内存省 90%。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🏆</span>
+    <div class="metaphor-title">Sorted Set</div>
+    <div class="metaphor-desc">记分牌磁铁
+ZADD/ZREVRANGE/ZRANK</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">🛗</span>
+    <div class="metaphor-title">跳表skiplist</div>
+    <div class="metaphor-desc">多层电梯跳跃
+O(log N)查排名</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">📅</span>
+    <div class="metaphor-title">分段排行</div>
+    <div class="metaphor-desc">日榜/周榜/月榜
+0点归档MySQL</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🪣</span>
+    <div class="metaphor-title">分桶策略</div>
+    <div class="metaphor-desc">分数段分区
+近似排名省内存</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>排行榜系统根据用户的行为数据（积分、步数、消费金额等）实时更新和展示排名。典型场景：游戏积分榜、微信运动步数榜、直播打赏榜。核心要求：<strong>写入快</strong>（每秒万级更新）、<strong>查询快</strong>（TopN 毫秒级返回）、<strong>排名准确</strong>（实时反映最新分数）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>如果直接用 MySQL 实现排行榜：① 每次更新分数要 UPDATE + 全表重算排名（ORDER BY score DESC），数据量大会极慢；② 查 Top100 需要 ORDER BY + LIMIT，需要走索引扫描，千万行数据也要几百毫秒；③ 查某用户的实时排名要 COUNT(*) WHERE score > ?，无法实时。Redis Sorted Set 内部用跳表（skiplist）实现，插入/查询/排名操作均为 O(log N)，专门为此场景设计。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>三个核心：① <strong>实时更新排名</strong>——ZADD/ZINCRBY 更新分数后排名自动调整，不需要重建索引；② <strong>快速查 TopN</strong>——ZREVRANGE（按分数从高到低）返回排名前 N 的用户，毫秒级；③ <strong>查任意用户排名</strong>——ZRANK/ZREVRANK 返回用户的排名位置（从 0 开始），O(log N) 时间。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>Redis Sorted Set 底层是<strong>跳表（skiplist）+ 哈希表（dict）</strong>组合：跳表用于按分数排序的范围查询（ZRANGE/ZREVRANGE），哈希表用于按 member 精确查找分数（ZSCORE）。跳表是一种随机化的多层链表，查找时从顶层开始跳跃式前进，平均时间复杂度 O(log N)。常用命令：<br>① ZADD key score member：添加/更新成员分数；<br>② ZINCRBY key increment member：原子增加分数（如游戏中击杀+10分）；<br>③ ZREVRANGE key 0 9 WITHSCORES：取 Top 10；<br>④ ZREVRANK key member：查 member 的排名（第几名）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① 全内存存储：大型排行榜（亿级用户）可能占用几十 GB 内存（每个 member 约 50-100 字节 + score 8 bytes）；② 持久化压力：全量数据在 Redis 中，RDB/AOF 写入和恢复时间长；③ 相同分数排名不一致：分数相同时按 member 字典序排序，不是按时间先后；④ 分段排行榜复杂：日榜、周榜、月榜需要多套 Sorted Set，数据同步和过期清理需要额外逻辑。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① 内存优化：定期归档只保留活跃用户（最近 30 天有行为），僵尸用户移到 DB；② 持久化：Redis 只存热榜（实时榜+日榜），历史榜从 MySQL 查询；③ 分数相同时序：在 score 的小数部分嵌入时间戳（如 score = 1000.1680000000），让先达到分数的排前面；④ 分段排行榜：用定时任务每天 0 点将当日 ZSET 数据归档到 DB，创建新的日榜 ZSET，周榜/月榜用定时任务聚合日榜数据。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>微信运动：每天 0 点归档昨日 ZSET → MySQL，新建当日 ZSET。游戏排行榜：实时榜用 Redis ZSET，赛季榜（3 个月）用 Redis + 定时刷入 DB。王者荣耀段位榜：分段分为青铜/白银/黄金/钻石/王者，每个段位一个 ZSET 减少单个 key 的大小。超大用户量（5 亿+）方案：分数分桶（0-100 / 101-500 / 501-1000...）每个桶一个 ZSET，查询时先定位桶再查精确排名。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"排行榜用 Redis Sorted Set 是最佳实践。它底层是跳表+哈希表，ZADD 原子更新分数，ZREVRANGE 毫秒查 TopN，ZRANK 查任意用户排名，全 O(log N)。大规模排行榜要做分段：实时榜用 ZSET 存今天数据，日榜/周榜/月榜每天 0 点归档到 MySQL。亿万级用户用分桶策略：按分数段分成多个 ZSET，查排名时先算桶内排名再加偏移量，牺牲少量精度换内存。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"MySQL ORDER BY 就够了"（千万级数据一排序几秒，还不支持实时排名）</li>
+        <li>"Redis String + 自己算排名"（放弃了 Sorted Set 的跳表优势，性能和实现都糟糕）</li>
+        <li>"排行榜查一次就行不需要排序"（查"我的排名"就是一次排序计算）</li>
+        <li>"Redis 内存够大，所有数据都放里面"（不考虑持久化、恢复时间、成本）</li>
+        <li>"用 MySQL + Redis 定期同步"（多了同步延迟和不一致问题）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"Redis Sorted Set 用跳表实现，插入/查询/排名全是 O(log N)，专为排行榜场景设计"</li>
+        <li>"ZADD 更新分数 → ZREVRANGE 查 TopN → ZRANK 查个人排名，三个命令搞定所有需求"</li>
+        <li>"分段排行榜：日榜 ZSET 存今天，每天 0 点归档 MySQL 再新建空 ZSET"</li>
+        <li>"超大用户量用分桶策略，减少单个 ZSET 大小，近似排名在可接受误差范围内"</li>
+        <li>"历史榜单从 MySQL 查，Redis 只负责实时热榜，兼顾性能和成本"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">🏆 排行榜系统</div>
+    <div class="branch">├─ <span class="arrow">→</span> Redis Sorted Set 原理</div>
+    <div class="leaf">│  ├─ 底层：跳表（skiplist）+ 哈希表（dict）双重结构</div>
+    <div class="leaf">│  ├─ 跳表：多层链表，随机层高，查找/插入 O(log N)</div>
+    <div class="leaf">│  └─ 哈希表：member → score 的直接映射，ZSCORE 操作 O(1)</div>
+    <div class="branch">├─ <span class="arrow">→</span> 核心命令详解</div>
+    <div class="leaf">│  ├─ ZADD key score member：添加成员（存在则更新分数）</div>
+    <div class="leaf">│  ├─ ZINCRBY key 10 "user:123"：原子增加分数（一次网络往返）</div>
+    <div class="leaf">│  ├─ ZREVRANGE key 0 99 WITHSCORES：取 Top 100（分数从高到低）</div>
+    <div class="leaf">│  └─ ZREVRANK key "user:123"：查排名（返回 0-based 索引，实际排名 +1）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 分段排行榜设计</div>
+    <div class="leaf">│  ├─ 实时榜：ZSET day:rank:20260524，ZINCRBY 实时更新</div>
+    <div class="leaf">│  ├─ 日榜：每天 0 点归档 day:rank:20260524 → MySQL，创建 day:rank:20260525</div>
+    <div class="leaf">│  ├─ 周榜：定时任务聚合本周 7 天日榜数据重建 ZSET</div>
+    <div class="leaf">│  └─ 月榜/总榜：同样方式聚合，Redis 只存当月，历史存 MySQL</div>
+    <div class="branch">├─ <span class="arrow">→</span> 归档策略</div>
+    <div class="leaf">│  ├─ 定时任务（每天 00:05）：ZREVRANGE 导出全量 → 批量 INSERT MySQL</div>
+    <div class="leaf">│  ├─ 过期清理：EXPIRE 设置 ZSET TTL 为 7 天，Redis 自动删除旧日榜</div>
+    <div class="leaf">│  └─ MySQL 按月分表，按年归档，保留最近 3 年数据</div>
+    <div class="branch">├─ <span class="arrow">→</span> 超大用户量优化</div>
+    <div class="leaf">│  ├─ 分数分桶：0-100/101-500/501-2000/2001-10000，每个桶一个 ZSET</div>
+    <div class="leaf">│  ├─ 近似排名：排名 = 所在桶排名 + 所有更高桶总人数（偏移量）</div>
+    <div class="leaf">│  └─ TopN 精确、其余近似：大部分用户不关心精确排名，前 1000 精确即可</div>
+    <div class="branch">└─ <span class="arrow">→</span> 与 DB 方案对比</div>
+    <div class="leaf">   ├─ MySQL ORDER BY + LIMIT：简单但慢，千万行 500ms+</div>
+    <div class="leaf">   ├─ MySQL + 索引（score DESC）：查询 TopN 快但排名查询慢（COUNT(*)）</div>
+    <div class="leaf">   ├─ Redis Sorted Set：写入/查询/排名全 O(log N)，毫秒级</div>
+    <div class="leaf">   └─ 结论：实时榜用 Redis，历史榜用 MySQL，各取所长</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"排行榜 = 游戏厅的积分板：Sorted Set = 那个带磁铁的记分牌（ZADD = 移动磁铁更新分数），跳表 = 多层高速公路（从最高层跳着找，不用一层层爬），ZREVRANGE = 看一眼最上面那排（Top 10），ZRANK = 问'我是第几名'。分段 = 日榜是今天的白板、周榜是一周的汇总表、月榜是一月的大版面——每天擦掉白板（归档 DB），第二天写新的。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 说明 Redis Sorted Set 底层结构（跳表 + 哈希表）和时间复杂度 O(log N)</li>
+    <li><input type="checkbox"> 熟练说出关键命令：ZADD / ZINCRBY / ZREVRANGE / ZRANK</li>
+    <li><input type="checkbox"> 设计分段排行榜方案（实时榜 / 日榜 / 周榜 / 月榜）</li>
+    <li><input type="checkbox"> 解释归档策略（每天 0 点导出 ZSET → MySQL，Redis 仅保留热数据）</li>
+    <li><input type="checkbox"> 说明超大用户量的分桶方案和近似排名算法</li>
+    <li><input type="checkbox"> 对比 MySQL ORDER BY vs Redis Sorted Set 的性能差异</li>
+    <li><input type="checkbox"> 处理同分排名问题（score 嵌入时间戳保证先到先排前面）</li>
+    <li><input type="checkbox"> 说明内存估算和持久化方案（RDB/AOF + MySQL 归档）</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

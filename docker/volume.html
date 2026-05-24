@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DO-04 Volume 数据卷 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="index.html" class="docker-link active">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">Docker</a> &rsaquo; Volume 数据卷</div>
+  <h1>🐳 Volume 数据卷</h1>
+  <div class="meta">
+    <span>编号 DO-04</span>
+    <span>分类：数据管理</span>
+    <span>难度：⭐⭐⭐</span>
+    <span>频率：中频</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Docker 数据持久化三种方式：bind mount（宿主机路径映射）、volume（Docker 管理，推荐）、tmpfs（内存临时存储）。volume 适合数据持久化和容器间共享，bind mount 适合开发调试热更新代码。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「存东西的方式」看懂三种数据挂载</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🔐</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：Volume = Docker 管的保险柜</strong><br><span style="color:var(--text-secondary)"><strong style="color:#fbbf24">docker volume create mydata</strong>——你在公司买了个保险柜，Docker 帮你管钥匙、管存放位置（<code>/var/lib/docker/volumes/</code>）。容器可以随时存取，容器离职（删除）了保险柜还在。安全、持久、可移植。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">🔐</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🏠</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：bind mount = 借用宿主机的柜子</strong><br><span style="color:var(--text-secondary)"><strong style="color:#fbbf24">-v /host/data:/container/data</strong>——你不买保险柜，直接从家里（宿主机）搬了个抽屉到公司。方便是方便（改代码热更新），但搬来搬去麻烦（依赖宿主机路径），抽屉锁也不一定对（UID 权限问题）。适合开发调试，不适合生产环境。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">📝</div>
+    <div>
+      <strong style="color:#a78bfa">场景3：tmpfs = 写纸条用完扔</strong><br><span style="color:var(--text-secondary)"><strong style="color:#a78bfa">--tmpfs /tmp:rw,size=128M</strong>——你在便签纸上记密码，用完就撕掉（容器停数据消失）。存在内存里，速度极快、不落盘。适合 session token、临时密钥等敏感短期数据。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">🔄</div>
+    <div>
+      <strong style="color:#34d399">场景4：容器间共享数据 = 公用保险柜</strong><br><span style="color:var(--text-secondary)">多个容器挂载同一个 volume，就像公司前台和财务共享一个保险柜——前台放文件进去，财务随时取。典型场景：Web 容器写日志 → 日志采集 Sidecar 容器读取 → 送到 ES。<strong style="color:#34d399">--volumes-from</strong> 就是「我用他的保险柜」。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🔐</span>
+    <div class="metaphor-title">Volume</div>
+    <div class="metaphor-desc">Docker管的保险柜
+安全持久、可移植</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">🏠</span>
+    <div class="metaphor-title">bind mount</div>
+    <div class="metaphor-desc">借宿主机的柜子
+开发方便、生产慎用</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">📝</span>
+    <div class="metaphor-title">tmpfs</div>
+    <div class="metaphor-desc">写纸条用完扔
+内存存储、停即消失</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🔄</span>
+    <div class="metaphor-title">数据共享</div>
+    <div class="metaphor-desc">多容器挂同一volume
+Sidecar日志采集</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>Docker 容器文件系统默认是临时的——容器删除后数据丢失。Volume 是 Docker 提供的数据持久化机制，将数据存储在容器文件系统之外，独立于容器生命周期。支持三种挂载方式。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>容器是无状态的，但数据必须持久。数据库容器（MySQL/PostgreSQL）的数据不能随容器删除而丢失；多容器间需要共享配置文件、日志、静态资源；开发时需要热更新代码不用重建镜像。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>解决"容器即用即抛"与"数据需要持久"的矛盾。容器可以随时重建，但数据必须保留。Volume 让数据生命周期独立于容器，成为一等公民。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>① bind mount：直接将宿主机路径映射到容器内路径，宿主机文件变化容器内立即可见（inode 级别共享）；② volume：Docker 在 <code>/var/lib/docker/volumes/</code> 下管理，由 Docker 完全控制，可通过驱动插件支持 NFS/云存储；③ tmpfs：数据存在内存中，容器停止即消失，适合临时敏感数据（密钥/token）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① bind mount 强依赖宿主机路径，跨机器迁移困难，还可能有权限问题（UID 不一致）；② volume 默认存储在本地，多主机共享需要额外驱动（NFS/CSI）；③ tmpfs 受内存大小限制且不能跨容器共享；④ volume 清理需要手动管理（<code>docker volume prune</code>），容易产生孤儿 volume。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① 生产环境优先用 volume + Docker Volume Plugin（如 Rex-Ray、NFS driver）实现跨主机共享；② K8s 中用 PV/PVC 替代 Docker volume，实现声明式存储管理；③ 定期 <code>docker volume prune</code> 清理孤儿卷；④ bind mount 的权限问题通过 <code>--user</code> 参数或在 Dockerfile 中设置 UID 解决。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>MySQL 容器：<code>docker run -v mysql_data:/var/lib/mysql mysql:8</code> 数据持久化到 volume。开发环境：<code>docker run -v $(pwd):/app node:18 npm run dev</code> bind mount 代码目录实现热更新。敏感信息：<code>docker run --tmpfs /tmp:rw,size=128M</code> 临时密钥不落盘。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Docker 数据持久化三种方式：①bind mount——宿主机路径直接映射，适合开发调试热更新；②volume——Docker 自己管理，存在 <code>/var/lib/docker/volumes/</code>，是生产推荐方式，独立于容器生命周期；③tmpfs——存在内存里，容器停就没了，适合临时敏感数据。记住口诀：volume 像保险柜（安全持久）、bind mount 像借壳（方便但依赖宿主机）、tmpfs 像写纸条（用完就扔）。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"容器删了数据还在"（不挂 volume 的话数据会丢）</li>
+        <li>"bind mount 和 volume 一样"（管理方式、路径、可移植性完全不同）</li>
+        <li>"生产环境用 bind mount"（依赖宿主机路径，不可移植，不推荐）</li>
+        <li>"tmpfs 数据重启还在"（在内存中，容器停就消失）</li>
+        <li>"volume 不能跨容器共享"（多个容器可以挂载同一个 volume）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"不带 -v 的容器，数据随容器删除而丢失"</li>
+        <li>"bind mount 由用户管理、依赖宿主机路径；volume 由 Docker 管理，路径在 /var/lib/docker/volumes/"</li>
+        <li>"生产环境推荐 volume，跨主机可用 volume plugin（NFS）"</li>
+        <li>"tmpfs 是内存文件系统，适合 session token 等临时数据"</li>
+        <li>"多个容器可以挂载同一个 volume 实现数据共享"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">🐳 Volume 数据卷</div>
+    <div class="branch">├─ <span class="arrow">→</span> bind mount（宿主机路径映射）</div>
+    <div class="leaf">│  ├─ <code>-v /host/path:/container/path</code></div>
+    <div class="leaf">│  ├─ 适合开发调试（代码热更新）</div>
+    <div class="leaf">│  ├─ 问题：权限（UID 不匹配）、可移植性差</div>
+    <div class="leaf">│  └─ 容器内新建文件可能归 root 所有</div>
+    <div class="branch">├─ <span class="arrow">→</span> volume（Docker 管理，推荐）</div>
+    <div class="leaf">│  ├─ <code>-v volume_name:/container/path</code></div>
+    <div class="leaf">│  ├─ 存储位置：<code>/var/lib/docker/volumes/</code></div>
+    <div class="leaf">│  ├─ 独立于容器生命周期（容器删了卷还在）</div>
+    <div class="leaf">│  ├─ 支持 Volume Driver Plugin（NFS/云存储）</div>
+    <div class="leaf">│  └─ <code>docker volume create/ls/inspect/prune</code></div>
+    <div class="branch">├─ <span class="arrow">→</span> tmpfs（内存临时存储）</div>
+    <div class="leaf">│  ├─ <code>--tmpfs /tmp:rw,size=128M</code></div>
+    <div class="leaf">│  ├─ 纯内存，不落盘，容器停即消失</div>
+    <div class="leaf">│  ├─ 适合：密钥、token、临时缓存</div>
+    <div class="leaf">│  └─ 限制：受内存大小约束，不能跨容器共享</div>
+    <div class="branch">├─ <span class="arrow">→</span> 数据共享场景</div>
+    <div class="leaf">│  ├─ 多容器挂同一 volume：日志采集 sidecar</div>
+    <div class="leaf">│  ├─ <code>--volumes-from</code>：继承另一个容器的挂载</div>
+    <div class="leaf">│  └─ 数据容器模式（data-only container）</div>
+    <div class="branch">└─ <span class="arrow">→</span> 备份与迁移</div>
+    <div class="leaf">   ├─ <code>docker run --rm -v vol:/data -v $(pwd):/backup alpine tar cvf /backup/backup.tar /data</code></div>
+    <div class="leaf">   ├─ volume 跨主机迁移需要手动打包或使用共享存储</div>
+    <div class="leaf">   └─ K8s PV/PVC 解决跨节点持久化问题</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"Volume = 保险柜（Docker 管，安全持久），bind mount = 借壳（宿主机的空间，开发方便），tmpfs = 写纸条（用完就扔）"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 说出三种数据挂载方式的名称和使用场景</li>
+    <li><input type="checkbox"> 对比 bind mount 和 volume 的区别（管理方式/路径/可移植性）</li>
+    <li><input type="checkbox"> 解释 tmpfs 的使用场景和限制</li>
+    <li><input type="checkbox"> 说明如何让多个容器共享同一份数据</li>
+    <li><input type="checkbox"> 说出 volume 的备份和迁移方法</li>
+    <li><input type="checkbox"> 解释 Docker volume driver plugin 的作用（跨主机存储）</li>
+    <li><input type="checkbox"> 能一句话总结："volume 存持久数据，bind mount 开发调试，tmpfs 临时敏感数据"</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

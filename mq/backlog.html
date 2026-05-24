@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>消息积压处理 — MQ 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link active">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+  <div class="interview-header">
+    <div class="breadcrumb"><a href="../mq/index.html">MQ</a> / 消息积压处理</div>
+    <h1>消息积压 — 原因、紧急处理与预防</h1>
+    <div class="meta"><span>编号：MQ-04</span><span>难度：⭐⭐⭐</span><span>频率：🔥🔥🔥🔥</span></div>
+  </div>
+
+  <div class="summary-box anim-scale">
+    <div class="label">💡 一句话结论</div>
+    <div class="one-liner">消息积压原因：消费速度 &lt; 生产速度或消费者故障。处理方案：紧急扩容消费者数量、临时新建 Topic 转移积压消息、跳过非关键消息降级处理、死信队列转存超限消息。</div>
+  </div>
+
+  <!-- ====== 🎬 生活类比故事 ====== -->
+  <section class="story-section">
+    <div class="story-label">🎬 生活类比 — 消息积压 = 高速堵车</div>
+    <div class="story-title">用「堵车」看懂消息积压与应急处理</div>
+    <div class="story-scene anim-fade-left">
+      <div class="scene-icon">🚗</div>
+      <div>
+        <strong style="color:var(--accent)">场景1：消费速度跟不上 = 收费站太少</strong><br>
+        <span style="color:var(--text-secondary)">早高峰高速上车流（生产者）源源不断，出口收费站只有 2 个窗口（消费者少），车越堵越长（<strong style="color:#f87171">consumer lag 持续增大，消息积压</strong>）。原因：①收费站员工请假了（消费者挂了）；②收费系统变慢了（消费逻辑慢，DB慢查询）；③突然车流暴增（大促/秒杀<strong style="color:#fbbf24">生产突发</strong>）。</span>
+      </div>
+    </div>
+    <div class="story-scene anim-fade-right delay-200">
+      <div class="scene-icon">🛣️</div>
+      <div>
+        <strong style="color:var(--accent)">场景2：紧急扩容 = 加车道，临时 Topic = 应急车道</strong><br>
+        <span style="color:var(--text-secondary)">第一反应：<strong style="color:#fbbf24">增开收费窗口</strong>（扩容消费者实例）。但注意——一辆车只能去一个窗口（Kafka 一个分区只能一个消费者消费），窗口数不能超过车道数（分区数）。还不够？<strong style="color:#fbbf24">开应急车道</strong>（新建临时 Topic）——让部分车先去应急车道，用临时的快速窗口处理，处理完再切回主路。</span>
+      </div>
+    </div>
+    <div class="story-scene anim-fade-left delay-400">
+      <div class="scene-icon">🔄</div>
+      <div>
+        <strong style="color:var(--accent)">场景3：降级 = 绕行，死信队列 = 拖车场</strong><br>
+        <span style="color:var(--text-secondary)">实在堵得不行了：<strong style="color:#fbbf24">非关键消息降级</strong>——让普通小轿车绕行（快速 ACK 跳过），保证救护车（关键业务消息）优先通行。<strong style="color:#fbbf24">死信队列（DLQ）</strong> = 故障车拖到停车场——消费失败重试 16 次还不行？拖走（进 DLQ），别堵在路上影响后面的车，等人来修（人工处理）。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 技术映射卡片 ====== -->
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <span class="metaphor-emoji">🚗</span>
+      <div class="metaphor-title">积压根因</div>
+      <div class="metaphor-desc">收费站太少车太多<br>消费<生产 或消费者故障</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <span class="metaphor-emoji">🛣️</span>
+      <div class="metaphor-title">扩容 + 应急道</div>
+      <div class="metaphor-desc">加窗口/开临时Topic<br>消费者≤分区数要记住</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <span class="metaphor-emoji">🔄</span>
+      <div class="metaphor-title">降级绕行</div>
+      <div class="metaphor-desc">非关键消息快速跳过<br>保关键业务优先通行</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-400">
+      <span class="metaphor-emoji">🅿️</span>
+      <div class="metaphor-title">DLQ 拖车场</div>
+      <div class="metaphor-desc">重试16次失败的进DLQ<br>防止堵路 人工修复</div>
+    </div>
+  </div>
+
+  <div class="section highlight anim-fade-up">
+    <h3><span class="emoji">📋</span> 7步答题模板</h3>
+    <div class="answer-template">
+      <div class="step"><h4>第一步：什么算积压？</h4><p>消息积压（Backlog）是指消息的生产速度持续大于消费速度，导致 MQ 中待消费消息不断堆积。表现为：consumer lag 持续增大、磁盘使用率飙升、消费延迟增加。轻则延迟几分钟，重则积压几百万条。</p></div>
+      <div class="step"><h4>第二步：积压原因定位</h4><p>分两类：①消费端故障——消费者挂了、消费逻辑变慢（DB 慢查询/依赖超时）、消费者线程池打满；②生产突发——秒杀/大促瞬时流量飙升、上游批量任务堆积。用 MQ 管控台看 consumer lag、磁盘使用率、消费 TPS 趋势，快速定位是哪个 topic / consumer group。</p></div>
+      <div class="step"><h4>第三步：紧急扩容消费者（最快方案）</h4><p>紧急增加消费者实例数（水平扩容）。注意：消费者数量不能超过分区数量（Kafka 一个分区只能一个消费者消费）。RocketMQ 中增加 consumer 机器或增加线程数。如果已经在 K8s 上，直接 scale 副本数。也可以临时调大消费线程池（consumeThreadMin/Max）。</p></div>
+      <div class="step"><h4>第四步：临时 Topic 分流（兜底方案）</h4><p>当扩容也跟不上时：创建一个新 Topic（如 order-topic-temp），写一个临时消费者程序把积压消息从原 Topic 消费后投到新 Topic，部署大量消费者去消费新 Topic。原消费者暂停，等临时队列清空后再切回来。这是大促期间的标准应急操作。</p></div>
+      <div class="step"><h4>第五步：降级处理</h4><p>如果积压量巨大且业务允许：对非关键消息做降级——直接跳过不做业务处理，只记录日志。用消息 tag/header 区分关键和非关键消息，关键消息正常消费，非关键消息快速 ACK 跳过。事后补数据处理。</p></div>
+      <div class="step"><h4>第六步：死信队列</h4><p>消费失败重试达到上限（默认 16 次）的消息进入死信队列（DLQ，Dead Letter Queue）。需要监控死信队列，定时捞出死信消息做人工处理或重新投递。各 MQ 死信机制：RocketMQ 的 %DLQ%consumerGroup、Kafka 可以用单独的 dead-letter topic、RabbitMQ 的 x-dead-letter-exchange。</p></div>
+      <div class="step"><h4>第七步：预防与监控</h4><p>①容量评估：评估日常和峰值 QPS，预留 buffer。②消费能力弹性：消费者部署在 K8s 上，基于 consumer lag 做 HPA（水平弹性伸缩）。③监控告警：consumer lag > 阈值告警、磁盘使用率 > 80% 告警、死信队列增长告警。④上线规范：新上线的消费者必须压测消费能力。</p></div>
+    </div>
+  </div>
+
+  </section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"消息积压的根因是消费速度跟不上生产速度。紧急处理分三步：第一步扩容消费者——增加实例数或线程数；第二步如果还不够，建临时 Topic 把积压消息分流消费；第三步对非关键消息做降级跳过。根本解决方案是预防——consumer lag 告警 + K8s HPA 弹性伸缩 + 上线前压测消费能力。死信队列也要监控，定时处理重试失败的消息。"</div>
+    </div>
+  </div>
+</section>
+
+  <div class="section warning-zone">
+    <h3><span class="emoji">⚠️</span> 面试常见错误 vs 正确回答</h3>
+    <div class="compare">
+      <div class="col before">
+        <h4>❌ 错误回答</h4>
+        <p>"积压就加机器"<br><br>"消费者越多越好"<br><br>"积压消息直接丢就行"</p>
+      </div>
+      <div class="col after">
+        <h4>✅ 正确回答</h4>
+        <p>"先定位原因——是消费慢了还是生产突增了，再对症下药"<br><br>"消费者数受分区数限制，Kafka 一个分区只能一个消费者"<br><br>"关键业务消息不能丢——用临时 Topic 分流或降级非关键消息，不能一刀切"</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim-fade-up"><h3><span class="emoji">🌲</span> 追问树</h3>
+    <div class="tree">
+      <span class="node">消息积压</span><br>
+      <span class="branch">├─ 什么原因导致积压？</span><br>
+      <span class="leaf">→ 消费速度 &lt; 生产速度 / 消费者故障 / 消费逻辑变慢 / 生产突发</span><br>
+      <span class="branch">├─ 怎么紧急扩容？</span><br>
+      <span class="leaf">→ 增加消费者实例数（≤分区数）/ 调大线程池 / K8s scale</span><br>
+      <span class="branch">├─ 临时 Topic 分流怎么操作？</span><br>
+      <span class="leaf">→ 建新 Topic → 临时程序转发积压消息 → 大量消费者消费 → 切回</span><br>
+      <span class="branch">├─ 怎么降级处理？</span><br>
+      <span class="leaf">→ tag/header 区分关键/非关键 → 非关键直接 ACK 跳过</span><br>
+      <span class="branch">├─ 死信队列什么用？</span><br>
+      <span class="leaf">→ 重试上限后进 DLQ / 监控+人工处理 / 防止一直重试阻塞队列</span><br>
+      <span class="branch">└─ 怎么预防？</span><br>
+      <span class="leaf">→ lag 告警 / K8s HPA 弹性伸缩 / 上线前压测 / 容量评估</span>
+    </div>
+  </div>
+
+  <div class="memory-hook">
+    <div class="hook-label">🧠 记忆钩子</div>
+    <div class="hook-text">"消息积压像堵车：要么加车道（扩容消费者）、要么开应急车道（临时 Topic）、要么让部分车绕行（降级）。死信队列 = 修不好的故障车拖到停车场（DLQ），等人来修。"</div>
+  </div>
+
+  <div class="section success-zone">
+    <h3><span class="emoji">✅</span> 自检清单</h3>
+    <ul class="check-list">
+      <li><input type="checkbox"> consumer lag 和消息积压是一个概念吗？</li>
+      <li><input type="checkbox"> Kafka 分区数和消费者数的关系？为什么不能超过？</li>
+      <li><input type="checkbox"> 临时 Topic 分流的具体步骤？怎么保证不丢消息？</li>
+      <li><input type="checkbox"> 死信队列和重试队列有什么区别？</li>
+      <li><input type="checkbox"> 消费速度慢可能的原因有哪些？（DB 慢查询 / 下游超时 / OOM GC / 线程池满）</li>
+      <li><input type="checkbox"> 面试官问"凌晨 3 点告警积压 500 万条消息你怎么办？"，能说出完整应急流程吗？</li>
+    </ul>
+  </div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

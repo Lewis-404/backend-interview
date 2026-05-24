@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K8S-04 Ingress 流量入口 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="index.html" class="k8s-link active">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">K8s</a> &rsaquo; Ingress 流量入口</div>
+  <h1>☸️ Ingress 流量入口</h1>
+  <div class="meta">
+    <span>编号 K8S-04</span>
+    <span>分类：网络</span>
+    <span>难度：⭐⭐⭐⭐</span>
+    <span>频率：高频</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Ingress 是 7 层（HTTP/HTTPS）路由规则，通过 Ingress Controller（Nginx/Traefik/Istio）实现域名路由、TLS 终结、路径转发。不同于 Service（4 层），Ingress 可以做基于 host/path 的流量分发。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「写字楼前台」看懂 Ingress 7层路由</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🏢</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：Ingress = 写字楼前台</strong><br><span style="color:var(--text-secondary)">访客进入写字楼，前台根据<strong style="color:#fbbf24">部门和姓名（域名+路径）</strong>带你到正确楼层。一个人（一个入口 IP）服务整栋楼（多个 Service），不用每个公司（每个服务）都开一个大门（LoadBalancer）。省钱、统一管理、统一安保。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">🏢</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🗺️</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：域名路由 = 按公司分楼层</strong><br><span style="color:var(--text-secondary)"><code>api.example.com</code> → 5楼API部（api-service），<code>web.example.com</code> → 8楼前端部（web-service）。前台不需要知道每层具体格局（Pod），只负责把人送到楼层入口（Service），楼层自己接待（Service→Pod负载均衡）。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🔀</div>
+    <div>
+      <strong style="color:var(--accent)">场景3：路径转发 = 按部门分工</strong><br><span style="color:var(--text-secondary)">同一个公司（同一个域名），但不同部门在不同楼层：<code>/user/*</code> → 人事部（user-service）、<code>/order/*</code> → 采购部（order-service）。这就是 7 层路由的威力——能看 HTTP 路径做决策，Service（4层）做不到。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">🛂</div>
+    <div>
+      <strong style="color:#a78bfa">场景4：TLS = 检查来访证</strong><br><span style="color:var(--text-secondary)">前台不仅要带路，还要检查来访证（TLS 证书）。访客没证？不让进（HTTP→HTTPS 重定向）。证件过期？前台通知 cert-manager 自动续期（Let's Encrypt ACME 协议）。这就是 TLS 终结——加密流量到前台为止，楼内明文通信，性能好。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🏢</span>
+    <div class="metaphor-title">前台统一入口</div>
+    <div class="metaphor-desc">一个IP服务全楼
+省钱省心</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">🗺️</span>
+    <div class="metaphor-title">域名路由</div>
+    <div class="metaphor-desc">按公司分楼层
+host规则分发</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">🔀</span>
+    <div class="metaphor-title">路径转发</div>
+    <div class="metaphor-desc">按部门分工
+path规则分发</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🛂</span>
+    <div class="metaphor-title">TLS终结</div>
+    <div class="metaphor-desc">检查来访证
+cert-manager自动续期</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>Ingress 是 K8s 中管理外部 HTTP/HTTPS 流量进入集群的 API 对象。它定义了域名到 Service 的路由规则（根据 host 和 path 转发），配合 Ingress Controller（如 Nginx Ingress）实际执行流量转发和 TLS 终结。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>如果用 LoadBalancer Service，每个服务都要一个 LB（成本高、管理复杂）。Ingress 用单一入口统一管理多个服务的路由：<code>api.example.com → api-svc</code>、<code>web.example.com → web-svc</code>，一个 LB 搞定所有服务。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>解决"7 层流量路由"问题——基于域名、路径、Header 等 HTTP 层信息分发流量，这是 Service（L4）做不到的。同时统一管理 TLS 证书、限流、认证等网关功能。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>Ingress 资源定义路由规则（host + path → backend Service），Ingress Controller（实际是 Nginx/Traefik 等反向代理）watch API Server 的 Ingress 变化，动态更新自己的配置文件（如 nginx.conf）并热加载。Ingress Controller 本身通常通过 LoadBalancer 或 NodePort Service 暴露。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① Ingress 只支持 HTTP/HTTPS（7 层），不支持 TCP/UDP（需用其他方式）；② 不同 Ingress Controller 实现有差异（Nginx 支持 annotation，Traefik 用 middleware）；③ 复杂路由场景 annotation 配置膨胀；④ 跨命名空间 TLS 证书管理复杂；⑤ 作为 K8s 原生 API 功能有限（催生了 Gateway API）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① TCP/UDP 流量用 ConfigMap 配合 Nginx Ingress 或使用 Gateway API；② 统一团队使用同一款 Ingress Controller 并用 GitOps 管理配置；③ 证书管理用 cert-manager 自动化（ACME 自动申请/续期 Let's Encrypt）；④ 复杂场景迁移到 Gateway API（K8s 下一代入口标准）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>部署 Nginx Ingress Controller → 创建 Ingress 资源定义路由 → 配合 cert-manager 自动签发 TLS 证书。示例：<code>api.example.com/api/* → api-service:8080</code>、<code>api.example.com/web/* → web-service:3000</code>。配置限流 annotation：<code>nginx.ingress.kubernetes.io/limit-rps: "10"</code>。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Ingress 是 K8s 的 7 层 HTTP 路由。和 Service（4 层）最大区别：Ingress 能根据域名和路径转发——比如 api.example.com/user 到一个 Service，api.example.com/order 到另一个。它只是一组路由规则，实际转发靠 Ingress Controller（Nginx/Traefik）。配合 cert-manager 自动管理 TLS 证书。新一代标准是 Gateway API，功能更强但 Ingress 目前仍是主流。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"Ingress 自带转发功能"（只定义规则，实际转发靠 Controller）</li>
+        <li>"Ingress 和 Service 一样都是四层"（Ingress 是 7 层 L7）</li>
+        <li>"所有 Ingress Controller 一样"（Nginx/Traefik/Istio 实现差异大）</li>
+        <li>"TLS 证书需要手动管理"（cert-manager 可自动化 ACME 申请续期）</li>
+        <li>"Ingress 支持 TCP"（Ingress 只支持 HTTP/HTTPS，TCP 需特殊配置）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"Ingress 定义路由规则，Ingress Controller 实际执行转发"</li>
+        <li>"Ingress 是 OSI 7 层（HTTP），Service 是 4 层（TCP/UDP）"</li>
+        <li>"主流 Controller：Nginx（最普及）、Traefik（云原生）、Istio Gateway（服务网格）"</li>
+        <li>"cert-manager 自动签发和续期 TLS 证书（Let's Encrypt ACME 协议）"</li>
+        <li>"TCP/UDP 场景需用 ConfigMap 或 Gateway API，不在标准 Ingress 范围内"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">☸️ Ingress</div>
+    <div class="branch">├─ <span class="arrow">→</span> Ingress Controller</div>
+    <div class="leaf">│  ├─ Nginx Ingress：最普及，功能全，annotation 驱动</div>
+    <div class="leaf">│  ├─ Traefik：云原生，自动发现，middleware 机制</div>
+    <div class="leaf">│  ├─ Istio Gateway：服务网格场景，功能最强</div>
+    <div class="leaf">│  └─ Controller 本身是一个 Deployment + Service（LB/NodePort）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 域名路由（host 规则）</div>
+    <div class="leaf">│  ├─ api.example.com → api-service</div>
+    <div class="leaf">│  ├─ web.example.com → web-service</div>
+    <div class="leaf">│  └─ 默认 backend（无匹配时的兜底）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 路径转发（path 规则）</div>
+    <div class="leaf">│  ├─ /api/* → backend-api</div>
+    <div class="leaf">│  ├─ /web/* → backend-web</div>
+    <div class="leaf">│  └─ PathType：Prefix（前缀匹配）/ Exact（精确匹配）/ ImplementationSpecific</div>
+    <div class="branch">├─ <span class="arrow">→</span> TLS 终结</div>
+    <div class="leaf">│  ├─ Secret 存储 TLS 证书（tls.crt + tls.key）</div>
+    <div class="leaf">│  ├─ Ingress 引用 Secret 进行 TLS 终结</div>
+    <div class="leaf">│  └─ cert-manager：自动申请 Let's Encrypt 证书（ACME）</div>
+    <div class="branch">├─ <span class="arrow">→</span> Ingress vs Service（7 层 vs 4 层）</div>
+    <div class="leaf">│  ├─ Service：L4，按 IP:Port 转发</div>
+    <div class="leaf">│  ├─ Ingress：L7，按 Host/Path/Header 转发</div>
+    <div class="leaf">│  └─ 两者配合使用（Ingress → Service → Pod）</div>
+    <div class="branch">├─ <span class="arrow">→</span> Gateway API（下一代）</div>
+    <div class="leaf">│  ├─ 比 Ingress 更强大、更可扩展</div>
+    <div class="leaf">│  ├─ 角色分离：基础设施（GatewayClass）→ 集群管理员（Gateway）→ 应用开发者（HTTPRoute）</div>
+    <div class="leaf">│  └─ 原生支持 HTTP/TCP/UDP/TLS/gRPC</div>
+    <div class="branch">└─ <span class="arrow">→</span> 限流 / 认证等高级功能</div>
+    <div class="leaf">   ├─ 限流：nginx.ingress.kubernetes.io/limit-rps</div>
+    <div class="leaf">   ├─ 认证：nginx.ingress.kubernetes.io/auth-url</div>
+    <div class="leaf">   ├─ 金丝雀：nginx.ingress.kubernetes.io/canary: "true"</div>
+    <div class="leaf">   └─ 跨域 CORS、重写 URL、白名单等</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"Ingress = 写字楼前台：根据部门和姓名（域名 + 路径）把访客（请求）带到正确楼层（Pod），前台还会检查来访证（TLS）"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 解释 Ingress 和 Service 的本质区别（L7 vs L4）</li>
+    <li><input type="checkbox"> 说明 Ingress 规则 + Ingress Controller 的协作关系</li>
+    <li><input type="checkbox"> 说出至少 3 种主流 Ingress Controller 及特点</li>
+    <li><input type="checkbox"> 解释 TLS 终结在 Ingress 中的实现方式（Secret + cert-manager）</li>
+    <li><input type="checkbox"> 写出基于 host 和 path 的典型 Ingress 路由规则</li>
+    <li><input type="checkbox"> 对比 Gateway API 和 Ingress 的区别</li>
+    <li><input type="checkbox"> 说明 Ingress 如何实现限流和认证功能（annotation）</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

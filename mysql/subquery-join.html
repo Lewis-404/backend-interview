@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>子查询 vs JOIN 优化 — MySQL面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="index.html" class="mysql-link active">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb">
+    <a href="../index.html">首页</a> &raquo;
+    <a href="index.html">MySQL</a> &raquo;
+    <span>#10</span>
+  </div>
+  <h1>子查询 vs JOIN 优化</h1>
+  <span class="q-number">TOP 10 ⭐⭐⭐⭐</span>
+</header>
+
+<div class="summary-box anim-scale">
+  <p class="big-conclusion">MySQL 5.6前子查询性能差（派生表无索引）；5.6+优化器将子查询改写为半连接(Semi-Join)或物化。JOIN优化核心：小表驱动大表(NLJ)、避免BNL(加索引变NLJ)、BKA批量回表。优先JOIN，子查询慎用IN+大结果集</p>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 外包 vs 直接合作</div>
+  <div class="story-title">为什么外包总比内部合作慢？MySQL 也是这么想的</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">📞</div>
+    <div><strong style="color:var(--accent)">场景：子查询 = 外包给别人做</strong><br><span style="color:var(--text-secondary)">你把需求扔给外包公司，他们做完再返回结果——沟通成本高、来回对接、每次都要重新交代。子查询也一样：内层查完把结果给外层，外层再每行查一次→O(n×m)</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🤝</div>
+    <div><strong style="color:var(--accent)">场景：JOIN = 直接合作</strong><br><span style="color:var(--text-secondary)">两个部门坐一起开会，信息实时互通——JOIN把两张表直接关联，被驱动表有索引时每次定位只需O(logM)，总复杂度O(N×logM)</span></div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🧠</div>
+    <div><strong style="color:var(--accent)">场景：优化器 = 聪明的项目经理</strong><br><span style="color:var(--text-secondary)">MySQL 5.6+的优化器像个有经验的PM——看到子查询就想"这外包干嘛不内部搞？"然后自动把IN子查询改成半连接(Semi-Join)，效率直接对齐JOIN</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-600">
+    <div class="scene-icon">👥</div>
+    <div><strong style="color:var(--accent)">场景：小表驱动大表 = 让小团队配合大团队</strong><br><span style="color:var(--text-secondary)">10人小团队主动去找500人大团队对接——小团队10次联络，大团队每次用索引秒回。反过来500人大团队逐个找10人小团队→500×log10，白白浪费489次</span></div>
+  </div>
+</section>
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100"><span class="metaphor-emoji">📞</span><div class="metaphor-title">子查询 = 外包</div><div class="metaphor-desc">沟通成本高、来回对接，O(n×m)</div></div>
+  <div class="metaphor-card anim-fade-up delay-200"><span class="metaphor-emoji">🤝</span><div class="metaphor-title">JOIN = 内部合作</div><div class="metaphor-desc">坐一起干、信息互通，O(N×logM)</div></div>
+  <div class="metaphor-card anim-fade-up delay-300"><span class="metaphor-emoji">🧠</span><div class="metaphor-title">优化器 = PM</div><div class="metaphor-desc">自动把外包改成内部合作(半连接优化)</div></div>
+  <div class="metaphor-card anim-fade-up delay-400"><span class="metaphor-emoji">👥</span><div class="metaphor-title">小表驱动 = 小KPI配合大团队</div><div class="metaphor-desc">减少外层循环，被驱动表走索引呼应</div></div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step"><h4>Step 1 — 是什么</h4><p>子查询是嵌套在另一个查询中的SELECT；JOIN是两张表的关联查询。MySQL优化器在5.6+能自动将某些子查询重写为JOIN（半连接优化）</p></div>
+    <div class="step"><h4>Step 2 — 为什么</h4><p>子查询（尤其IN子查询）若被当作"依赖子查询"执行，外层每行都要执行一次内层查询，O(n×m)。JOIN可以做索引嵌套循环(NLJ)降到O(n×log m)</p></div>
+    <div class="step"><h4>Step 3 — 解决的核心问题</h4><p>解决SQL写法导致的性能问题——写得不好的子查询可能比等价的JOIN慢几十倍。帮助做出正确的SQL选型决策</p></div>
+    <div class="step"><h4>Step 4 — 核心原理</h4><p>NLJ:驱动表逐行→用关联字段查被驱动表索引→O(N×logM)。BNL:被驱动表无索引→整表加载到join buffer→O(N×M)但减少随机IO。BKA:批量取驱动表+MRR批量回表</p></div>
+    <div class="step"><h4>Step 5 — 缺点/局限</h4><p>JOIN太多表导致SQL难维护且执行计划空间指数爆炸（8.0默认最多61张表关联）；子查询有时候确实比JOIN更易读</p></div>
+    <div class="step"><h4>Step 6 — 如何解决</h4><p>能用JOIN不用子查询；确保被驱动表关联字段有索引；EXPLAIN看Extra是否出现Using join buffer(BNL)→加索引变NLJ</p></div>
+    <div class="step"><h4>Step 7 — 实际落地</h4><p>MySQL 5.6+:优化器自动转换IN子查询为Semi-Join。EXPLAIN看是否有FirstMatch/MaterializeLookup等半连接策略。手动检查：select_type=DEPENDENT SUBQUERY→性能风险</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">子查询和JOIN的争论在MySQL 5.6后已经变了。5.6前IN子查询是"依赖子查询"——外层每行都执行一次内层，性能灾难。5.6+优化器会把IN子查询自动改写为半连接(Semi-Join)，等价于JOIN的效率。所以现在优先考虑：NOT IN/EXISTS可以放心用（优化器会搞），但派生表子查询(SELECT FROM (SELECT...))仍然要小心——派生表没有索引，大结果集会拖慢性能。JOIN的核心优化：让被驱动表的关联列走索引→变成NLJ→复杂度O(N×logM)；没有索引→变成BNL→O(N×M)。</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before"><h4>❌ 错误表达</h4>
+      <ul>
+        <li>"子查询一定比JOIN慢，永远不要用子查询" — 5.6+半连接优化后IN子查询和JOIN效率相当</li>
+        <li>"JOIN越多越好" — JOIN太多(>3-4张表)执行计划难优化，建议拆分</li>
+        <li>"LEFT JOIN和内连接性能一样" — LEFT JOIN可能改变驱动表选择，且结果集可能更大</li>
+        <li>"驱动表选哪个都无所谓" — 驱动表越小、过滤后行数越少，整体性能越好</li>
+      </ul></div>
+    <div class="col after"><h4>✅ 正确表达</h4>
+      <ul>
+        <li>"<strong>NLJ的前提是被驱动表关联列有索引</strong>——没有索引=BNL=全表扫描=慢。看到Using join buffer就要警觉"</li>
+        <li>"<strong>小表驱动大表</strong>：驱动表应该是过滤后行数最少的表，让外层循环次数最小"</li>
+        <li>"<strong>Semi-Join是5.6+的杀手特性</strong>：IN子查询自动转半连接，策略包括FirstMatch/MaterializeScan/LooseScan等"</li>
+        <li>"<strong>派生表优化</strong>：MySQL 5.7+自动将派生表物化+加索引；8.0支持派生表条件下推到内层，进一步提升性能"</li>
+      </ul></div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">子查询 vs JOIN</div>
+    <div class="branch">├─ <span class="arrow">→</span> MySQL 如何优化子查询？</div>
+    <div class="leaf">│  └─ 5.6+两大利器：①半连接(Semi-Join)：IN子查询转半连接，多种策略(FirstMatch/MaterializeScan/LooseScan/DuplicateWeedout)；②物化(Materialization)：子查询结果存临时表+建索引</div>
+    <div class="branch">├─ <span class="arrow">→</span> 驱动表怎么选？</div>
+    <div class="leaf">│  └─ ①过滤后行数最小的表；②被驱动表关联列有索引→NLJ→选小表当驱动表；③被驱动表无索引→优化器可能选大表当驱动表用BNL(减少join buffer交换次数)</div>
+    <div class="branch">├─ <span class="arrow">→</span> NLJ vs BNL vs BKA？</div>
+    <div class="leaf">│  └─ NLJ(Index Nested-Loop)：被驱动表有索引→每次用索引定位→O(N×logM)最优。BNL(Block Nested-Loop)：无索引→整表加载join buffer→O(N×M)但内存操作。BKA(Batched Key Access)：批量取驱动表→MRR排序后的主键批量回表→随机IO变顺序IO</div>
+    <div class="branch">├─ <span class="arrow">→</span> 派生表 (Derived Table) 怎么优化？</div>
+    <div class="leaf">│  └─ 派生表=FROM(SELECT ...)的子查询。问题：没有索引。优化：①尽量改JOIN；②5.7+自动物化+加索引；③8.0支持derived_condition_pushdown条件推入派生表</div>
+    <div class="branch">├─ <span class="arrow">→</span> IN vs EXISTS 怎么选？</div>
+    <div class="leaf">│  └─ IN：外表小内表大→Materialize内表+索引。EXISTS：外表大内表小→外表每行查内表索引。5.6+都走半连接。例外：NOT IN(NULL敏感)慎用→NOT EXISTS更安全</div>
+    <div class="branch">├─ <span class="arrow">→</span> STRAIGHT_JOIN 干什么的？</div>
+    <div class="leaf">│  └─ 强制指定JOIN的驱动表顺序。优化器选错时临时用。例如EXPLAIN发现小表没被选为驱动表→SELECT STRAIGHT_JOIN ... FROM small LEFT JOIN big→强制small做驱动表</div>
+    <div class="branch">└─ <span class="arrow">→</span> JOIN 优化器怎么选执行计划？</div>
+    <div class="leaf">   └─ 基于统计信息(索引基数、表大小)用动态规划或贪心算法。表越多→搜索空间越大→optimizer_search_depth控制搜索深度(默认62)。多表JOIN时可用optimizer_prune_level裁剪不优计划</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text"><strong>子查询=外包</strong>（沟通成本高、每次都要重新对接），<strong>JOIN=直接合作</strong>（坐下来一起干、效率高）。MySQL 5.6+的优化器就像个聪明的<strong>项目经理</strong>——它会尽量帮你把"外包"改成"直接合作"（半连接优化）</div>
+  <div class="hook-text" style="margin-top:0.8rem;font-size:0.9rem;opacity:0.85">NLJ — 有索引→O(N×logM) | BNL — 无索引→O(N×M) | BKA — 批量MRR回表 | 5.6+ — 半连接优化/Semi-Join</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+<li><input type="checkbox"> 能解释 NLJ 的执行流程和复杂度</li>
+    <li><input type="checkbox"> 能说出 BNL 出现的条件（Extra: Using join buffer, 被驱动表无索引）及优化方向</li>
+    <li><input type="checkbox"> 能说明小表驱动大表的原因（外层循环次数最小化）</li>
+    <li><input type="checkbox"> 能列举 Semi-Join 的至少两种策略（FirstMatch/MaterializeScan）</li>
+    <li><input type="checkbox"> 能解释派生表的问题和三种优化方式</li>
+    <li><input type="checkbox"> 能对比 IN vs EXISTS 的选择原则</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

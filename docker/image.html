@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DO-02 镜像分层与优化 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="index.html" class="docker-link active">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">Docker</a> &rsaquo; 镜像分层与优化</div>
+  <h1>🐳 镜像分层与优化</h1>
+  <div class="meta">
+    <span>编号 DO-02</span>
+    <span>分类：镜像原理</span>
+    <span>难度：⭐⭐⭐⭐</span>
+    <span>频率：高频</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Docker 镜像由多层只读层叠加（UnionFS），每层对应 Dockerfile 一条指令。镜像是分层 + 写时复制（COW）实现共享和复用。优化：合并 RUN 减少层数 / 清理临时文件 / .dockerignore / 多阶段构建 / Alpine 基础镜像。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「千层蛋糕」看懂镜像分层与COW</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🍰</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：镜像分层 = 千层蛋糕的每一层</strong><br><span style="color:var(--text-secondary)">Dockerfile 每条指令就是一层可丽饼皮。底层是基础镜像（Alpine饼底），往上是 RUN（抹奶油）、COPY（撒水果）。全部叠在一起就是一块完整的蛋糕（UnionFS 统一视图）。每层都有唯一编号（SHA256），一样的层（缓存）直接复用，不用重烤。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">🍰</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">✂️</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：COW 写时复制 = 蛋糕师复刻</strong><br><span style="color:var(--text-secondary)">容器运行时想改某个共享层里的文件？不是直接改原版蛋糕——而是<strong style="color:#fbbf24">先把那一小块复制到顶层（容器层），再在顶层改</strong>。原版蛋糕纹丝不动，其他容器继续共享。这就是 COW（Copy-on-Write），读完就改的才复制，不动的继续共享。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🗑️</div>
+    <div>
+      <strong style="color:#f87171">场景3：删除文件不释放空间 = 贴白纸遮住</strong><br><span style="color:var(--text-secondary)">删除蛋糕上的一颗草莓？不是真的拿走——是在上面贴一张白纸（<strong style="color:#f87171">whiteout 文件</strong>）遮住。下面的草莓还在，体积没变小。所以 <code>rm -rf /tmp/bigfile</code> 不会让镜像变小，要在同一层完成「安装+清理」。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">🔁</div>
+    <div>
+      <strong style="color:#a78bfa">场景4：缓存复用 = 一样的层不重做</strong><br><span style="color:var(--text-secondary)">今天烤的蛋糕底和昨天一模一样？直接用昨天的，跳过。但如果第三层换了奶油品牌，<strong style="color:#a78bfa">第三层及之后全部重新烤</strong>——这就是为什么 COPY 要放最后：代码天天变，但 apt install 基本不变，放前面能最大化缓存命中。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🍰</span>
+    <div class="metaphor-title">分层叠加</div>
+    <div class="metaphor-desc">每条指令一层
+UnionFS实现统一视图</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">✂️</span>
+    <div class="metaphor-title">COW写时复制</div>
+    <div class="metaphor-desc">共享层读完不改
+有修改才复制到顶层</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">🗑️</span>
+    <div class="metaphor-title">whiteout</div>
+    <div class="metaphor-desc">删除=贴白纸遮住
+下层文件仍在</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🔁</span>
+    <div class="metaphor-title">层缓存</div>
+    <div class="metaphor-desc">相同层直接复用
+变化层之后的全部重建</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>Docker 镜像由多个只读层（layer）堆叠而成，底层是基础镜像（如 Alpine），上层是 Dockerfile 中每条指令产生的增量。所有层通过 UnionFS（Union File System）合并成一个统一的文件系统视图。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>分层设计实现了镜像复用和高效传输。多个镜像共享相同的基础层（如都基于 Alpine）时，只存储一份；拉取镜像时只需拉取本地没有的层（增量下载）；构建时利用层缓存加速。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>解决镜像存储空间爆炸和传输效率问题。如果不分层，每个镜像都是完整的文件系统快照，10 个 Go 项目镜像就要存储 10 份 Alpine。分层后 10 个镜像共享一份 Alpine 基础层，节省 90% 存储和传输。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>存储驱动通常是 Overlay2：将多个目录（lowerdir）叠加，upperdir 存修改，merged 是统一视图。COW（写时复制）：读取共享层，只有修改时才复制到容器层。每层有唯一的 SHA256 哈希 ID，层之间通过父子关系链式引用。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① 层数过多导致元数据开销大，mount 变慢；② 删除文件不会释放空间（上层用 whiteout 文件标记删除，下层文件仍在）；③ 构建缓存失效后，有变化的层及之后所有层全部重建；④ 不同存储驱动性能差异大（Overlay2 > devicemapper > vfs）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① 合并 RUN 指令（&& 连接），减少层数；② 在同一层完成安装+清理（apt install && apt clean && rm -rf /var/lib/apt/lists/*）；③ .dockerignore 排除无关文件；④ 多阶段构建，最终镜像只包含运行时产物；⑤ 优先使用 Overlay2 存储驱动。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>用 <code>docker history &lt;image&gt;</code> 查看镜像分层；用 <code>docker image inspect</code> 查看层的 RootFS 信息。优化前后对比：未优化 Go 镜像 800MB → 合并 RUN + 多阶段 + Alpine 后 15MB，层数从 18 层减到 5 层。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Docker 镜像是分层的，每条指令一层，用 Overlay2 存储驱动叠加。核心价值是复用——多个镜像共享基础层，拉取只拉增量。容器运行时通过 COW（写时复制）在顶层写入。优化四板斧：①合并 RUN 减少层数 ②同一层安装+清理缓存 ③多阶段构建 ④Alpine 基础镜像。最终能把 Go 镜像从 800MB 瘦到 15MB。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"镜像就是一个压缩包"（忽略了分层和复用机制）</li>
+        <li>"删了文件镜像就变小了"（whiteout 机制，下层文件还在）</li>
+        <li>"层越多越好"（层数多导致元数据开销大）</li>
+        <li>"所有基础镜像差不多"（Ubuntu ~70MB vs Alpine ~5MB，差距巨大）</li>
+        <li>"COPY 放前面没事"（会频繁破坏缓存，慢）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"镜像是分层叠加的只读文件系统，由 UnionFS（Overlay2）实现统一视图"</li>
+        <li>"删除文件是上层创建 whiteout 文件遮蔽下层，原文件仍在，空间不释放"</li>
+        <li>"应尽可能减少层数——合并 RUN 指令，清理在同一层完成"</li>
+        <li>"依赖少放前面、变化多放后面，这样前面的层能缓存复用"</li>
+        <li>"Alpine（~5MB）比 Ubuntu（~70MB）小 14 倍，是生产首选基础镜像"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">🐳 镜像分层</div>
+    <div class="branch">├─ <span class="arrow">→</span> UnionFS / Overlay2</div>
+    <div class="leaf">│  ├─ lowerdir：只读层（镜像层）</div>
+    <div class="leaf">│  ├─ upperdir：可写层（容器层）</div>
+    <div class="leaf">│  ├─ merged：统一视图</div>
+    <div class="leaf">│  └─ workdir：Overlay2 内部工作目录</div>
+    <div class="branch">├─ <span class="arrow">→</span> COW 写时复制</div>
+    <div class="leaf">│  ├─ 读：直接从共享层读取</div>
+    <div class="leaf">│  ├─ 写：先复制到容器层再修改</div>
+    <div class="leaf">│  └─ 删：容器层创建 whiteout 文件标记</div>
+    <div class="branch">├─ <span class="arrow">→</span> 层缓存复用</div>
+    <div class="leaf">│  ├─ 每层有唯一 SHA256 哈希</div>
+    <div class="leaf">│  ├─ 相同指令+相同上下文 → 命中缓存</div>
+    <div class="leaf">│  └─ 多镜像共享基础层（一份 Alpine 多项目用）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 优化</div>
+    <div class="leaf">│  ├─ 合并 RUN（&& 连接，减少层数）</div>
+    <div class="leaf">│  ├─ 多阶段构建（编译+运行分离）</div>
+    <div class="leaf">│  ├─ Alpine 基础镜像（~5MB）</div>
+    <div class="leaf">│  └─ 同一层清理缓存（apt clean）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 镜像仓库</div>
+    <div class="leaf">│  ├─ Docker Hub（公共）</div>
+    <div class="leaf">│  ├─ Harbor（私有企业级）</div>
+    <div class="leaf">│  └─ 分层推送/拉取（只传缺失层）</div>
+    <div class="branch">└─ <span class="arrow">→</span> 镜像签名（Notary）</div>
+    <div class="leaf">   ├─ Docker Content Trust（DCT）</div>
+    <div class="leaf">   ├─ 对镜像层进行数字签名</div>
+    <div class="leaf">   └─ 确保镜像未被篡改</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"镜像 = 千层蛋糕：每一层是一条指令的产物，一模一样的层（缓存）可以复用省的重新做；有变化才重新烤那一层"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 解释 Overlay2 存储驱动的 lowerdir/upperdir/merged 三层结构</li>
+    <li><input type="checkbox"> 说明 COW（写时复制）的原理和 whiteout 文件的删除机制</li>
+    <li><input type="checkbox"> 解释为什么删除文件不释放镜像空间</li>
+    <li><input type="checkbox"> 说出至少 4 条镜像优化方法并解释原理</li>
+    <li><input type="checkbox"> 解释层缓存的命中条件（指令+上下文哈希一致）</li>
+    <li><input type="checkbox"> 对比 Alpine vs Ubuntu 基础镜像的大小差异</li>
+    <li><input type="checkbox"> 能一句话总结："分层叠加 + COW 写时复制 + 层缓存复用 = Docker 镜像核心机制"</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

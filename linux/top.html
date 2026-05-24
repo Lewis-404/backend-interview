@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>top 命令详解 — Linux 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link active">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+  <div class="interview-header">
+    <div class="breadcrumb"><a href="../linux/index.html">Linux</a> / top 命令详解</div>
+    <h1>top — Linux 实时系统监控工具</h1>
+    <div class="meta"><span>编号：LINUX-01</span><span>难度：⭐⭐⭐</span><span>频率：🔥🔥🔥🔥🔥</span></div>
+  </div>
+
+  <div class="summary-box anim-scale">
+    <div class="label">💡 一句话结论</div>
+    <div class="one-liner">top 是 Linux 实时系统监控工具，核心指标：load average（1/5/15 分钟平均负载，多核 CPU 不超过核心数）、CPU 使用率（us/sy/id/wa）、内存使用（free/used/buff/cache）、进程状态（R/S/D/Z）。</div>
+  </div>
+
+  <!-- ====== 🎬 生活类比故事 ====== -->
+  <section class="story-section">
+    <div class="story-label">🎬 生活类比 — top = 汽车仪表盘</div>
+    <div class="story-title">用「开车」看懂 top 全部指标</div>
+    <div class="story-scene anim-fade-left">
+      <div class="scene-icon">🏎️</div>
+      <div>
+        <strong style="color:var(--accent)">场景1：load average = 发动机转速表</strong><br>
+        <span style="color:var(--text-secondary)">你开车上高速，转速表指针飙到 8000 转——发动机在嘶吼（<strong style="color:#fbbf24">load average 飙升</strong>）。4 缸发动机（4 核 CPU）正常巡航 2000 转，长期超 4000 转？引擎要炸（系统过载）。load average 是综合拥堵指数，1min/5min/15min = 刚上路/跑一会/巡航期的转速。</span>
+      </div>
+    </div>
+    <div class="story-scene anim-fade-right delay-200">
+      <div class="scene-icon">⛽</div>
+      <div>
+        <strong style="color:var(--accent)">场景2：CPU = 油门，内存 = 油箱</strong><br>
+        <span style="color:var(--text-secondary)">油门踩多深 = <strong style="color:#fbbf24">us+sy（CPU使用率）</strong>，踩到底就是 100%。油箱还剩多少 = <strong style="color:#fbbf24">free+buff/cache（可用内存）</strong>——油表不准因为有些油在管路里（buff/cache 可回收）。<strong style="color:#f87171">wa 高 = 等红灯时发动机空转</strong>（CPU 在等 IO 没法干活）。</span>
+      </div>
+    </div>
+    <div class="story-scene anim-fade-left delay-400">
+      <div class="scene-icon">🧑‍🤝‍🧑</div>
+      <div>
+        <strong style="color:var(--accent)">场景3：进程状态 = 乘客们</strong><br>
+        <span style="color:var(--text-secondary)">R 状态 = <strong style="color:#fbbf24">正在飙车的车手</strong>（运行中）。S 状态 = <strong style="color:#fbbf24">副驾睡着了</strong>（可中断睡眠）。D 状态 = <strong style="color:#f87171">昏迷的乘客，谁也叫不醒</strong>（不可中断，等 IO）。Z 状态 = <strong style="color:#f87171">已经去世的乘客</strong>（僵尸进程，父进程没来收尸）。Swap 用了 = <strong style="color:#f87171">后备箱塞满了，开始往车顶绑行李</strong>。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 技术映射卡片 ====== -->
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <span class="metaphor-emoji">📊</span>
+      <div class="metaphor-title">load average</div>
+      <div class="metaphor-desc">发动机转速表<br>太高就要减速了</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <span class="metaphor-emoji">⛽</span>
+      <div class="metaphor-title">CPU 使用率</div>
+      <div class="metaphor-desc">油门踩多深<br>us=自己开 sy=系统帮开</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <span class="metaphor-emoji">🛢️</span>
+      <div class="metaphor-title">内存 buff/cache</div>
+      <div class="metaphor-desc">油箱+管路里的油<br>free少≠没油了</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-400">
+      <span class="metaphor-emoji">🧟</span>
+      <div class="metaphor-title">进程状态 R/S/D/Z</div>
+      <div class="metaphor-desc">开车/睡觉/昏迷/去世<br>D 喊不醒 Z 没法救</div>
+    </div>
+  </div>
+
+  <div class="section highlight anim-fade-up">
+    <h3><span class="emoji">📋</span> 7步答题模板</h3>
+    <div class="answer-template">
+      <div class="step"><h4>第一步：一句话定义</h4><p>top 是 Linux 下最常用的实时系统监控工具，类似 Windows 的任务管理器。它动态显示系统资源使用情况和进程列表。</p></div>
+      <div class="step"><h4>第二步：核心输出区域</h4><p>top 输出分两部分：上半部分是系统统计信息（System Summary），下半部分是进程列表（Task List）。</p></div>
+      <div class="step"><h4>第三步：load average（必考点）</h4><p>load average 是系统 1分钟/5分钟/15分钟的平均负载，表示处于 R 状态（运行）和 D 状态（不可中断睡眠）的进程数。判断标准：单核 ≤1，多核 ≤CPU 核心数。例如 4 核 CPU，load average 长期超过 4 说明系统过载。</p></div>
+      <div class="step"><h4>第四步：CPU 行解读</h4><p>us（用户态 CPU）/ sy（内核态 CPU）/ ni（低优先级用户态）/ id（空闲）/ wa（等待 IO 的 CPU %）/ hi（硬中断）/ si（软中断）/ st（被虚拟机偷走）。重点关注 us+sy（CPU 使用率）和 wa（IO 等待）。wa 持续很高 → 磁盘 IO 瓶颈。</p></div>
+      <div class="step"><h4>第五步：内存行解读</h4><p>Mem：total/free/used/buff/cache。注意 Linux 会把空闲内存做缓存，所以 free + buff/cache ≈ 实际可用内存。Swap 行显示交换分区使用，swap used 持续增长 = 内存不足在换页。</p></div>
+      <div class="step"><h4>第六步：进程状态</h4><p>R（Running 运行中）、S（Sleeping 可中断睡眠）、D（Disk sleep 不可中断睡眠，等待 IO）、Z（Zombie 僵尸进程，父进程未回收）、T（Stopped 暂停）。Z 状态进程不占用资源但占 PID，过多说明父进程有 bug。</p></div>
+      <div class="step"><h4>第七步：常用快捷键</h4><p>P - 按 CPU 使用率排序、M - 按内存使用排序、1 - 展开所有 CPU 核心、c - 显示完整命令、k - 杀死进程、q - 退出、t/m - 切换 CPU/内存显示样式、H - 切换线程视图。</p></div>
+    </div>
+  </div>
+
+  <div class="timer-box">
+    <div class="timer-icon">⏱️</div>
+    <div>
+      <div class="timer-label">60秒面试表达</div>
+      <div class="timer-text">"top 是 Linux 实时系统监控的标配工具。我最关注三个指标：一是 load average，衡量系统整体繁忙程度，多核 CPU 不超过核心数；二是 CPU 行的 us+sy 和 wa，分别反映计算和 IO 压力；三是内存的 buff/cache 要算进可用内存。进程状态 R/S/D/Z 也很有用，特别是 D 状态代表进程在等待 IO 无法被打断，Z 代表僵尸进程需要父进程回收。"</div>
+    </div>
+  </div>
+
+  <div class="section warning-zone">
+    <h3><span class="emoji">⚠️</span> 面试常见错误 vs 正确回答</h3>
+    <div class="compare">
+      <div class="col before">
+        <h4>❌ 错误回答</h4>
+        <p>"load average 就是 CPU 使用率"<br><br>"free 内存太少系统不行了"<br><br>"Z 进程要立刻 kill 掉"</p>
+      </div>
+      <div class="col after">
+        <h4>✅ 正确回答</h4>
+        <p>"load average 是运行队列+等待 IO 的任务数，不是 CPU 使用率"<br><br>"free 少 ≠ 内存不足，buff/cache 是可以回收的可用内存"<br><br>"Z 进程已经死了，kill 没用，应该找父进程修复 wait()"</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim-fade-up"><h3><span class="emoji">🌲</span> 追问树</h3>
+    <div class="tree">
+      <span class="node">top</span><br>
+      <span class="branch">├─ load average 是什么？</span><br>
+      <span class="leaf">→ 运行(R)+不可中断睡眠(D)的进程数均值</span><br>
+      <span class="branch">├─ 多核怎么判断？</span><br>
+      <span class="leaf">→ load ≤ CPU 核心数，可用 nproc/lscpu 查看</span><br>
+      <span class="branch">├─ CPU 行各字段含义？</span><br>
+      <span class="leaf">→ us 用户 / sy 系统 / id 空闲 / wa IO等待</span><br>
+      <span class="branch">├─ 内存行怎么看真正剩余？</span><br>
+      <span class="leaf">→ free + buff/cache = 可用内存（available）</span><br>
+      <span class="branch">├─ 进程状态 R / S / D / Z / T 分别是什么？</span><br>
+      <span class="leaf">→ R 运行、S 可中断睡眠、D 不可中断(IO)、Z 僵尸、T 暂停</span><br>
+      <span class="branch">└─ 快捷键有哪些？</span><br>
+      <span class="leaf">→ P(按CPU) M(按内存) 1(展开CPU) c(完整命令) k(kill)</span>
+    </div>
+  </div>
+
+  <div class="memory-hook">
+    <div class="hook-label">🧠 记忆钩子</div>
+    <div class="hook-text">"top = 汽车仪表盘：load average = 发动机转速（太高要炸）、CPU = 油门、内存 = 油箱、进程 = 乘客（状态：开车 R / 睡觉 S / 昏迷 D / 死机 Z）"</div>
+  </div>
+
+  <div class="section success-zone">
+    <h3><span class="emoji">✅</span> 自检清单</h3>
+    <ul class="check-list">
+      <li><input type="checkbox"> load average 和 CPU 使用率的区别能讲清楚吗？</li>
+      <li><input type="checkbox"> 4 核机器 load 5 是忙还是正常？能立刻判断吗？</li>
+      <li><input type="checkbox"> wa 很高代表什么问题？</li>
+      <li><input type="checkbox"> 为什么 free 内存很少但系统不卡？</li>
+      <li><input type="checkbox"> D 状态和 Z 状态的区别？</li>
+      <li><input type="checkbox"> 面试官问"怎么看哪个进程最吃内存"，能立刻说出 shift+M 吗？</li>
+    </ul>
+  </div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GO-06 Slice 底层结构与扩容 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="index.html" class="go-link active">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">Go</a> &rsaquo; Slice</div>
+  <h1>🍕 Slice 底层结构与扩容机制</h1>
+  <div class="meta">
+    <span>编号 GO-06</span>
+    <span>分类：数据结构</span>
+    <span>难度：⭐⭐⭐</span>
+    <span>频率：必问</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Slice 是一个引用类型，由指针 ptr + 长度 len + 容量 cap 组成。append 扩容策略：cap &lt; 1024 翻倍增长，cap ≥ 1024 增长 25%（约 1.25 倍）。切片操作共享底层数组是常见坑——修改子切片会影响原切片。nil slice（len=0, cap=0, ptr=nil）和 empty slice（len=0, cap=0, ptr 非 nil）语义不同。</div>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 长颈鹿的身体</div>
+  <div class="story-title">Slice 就是长颈鹿：头看哪里、脖子用多长、身体能装多少</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🦒</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：头(ptr)、脖子(len)、身体(cap)——水面上的鹿</strong><br>
+      <span style="color:var(--text-secondary)">一只长颈鹿在水里：头（ptr）指向水面上某个位置，脖子（len）是从头开始能看到的长度，身体（cap）藏在水下——你看不到但确实存在。你只能使用脖子以上的部分（len），但身体（cap）才是真正的容量。s1[i:j] 就是让另一只鹿把头伸过来看同一具身体。</span>
+    </div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">📈</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：append 长高——不够高整个身体换</strong><br>
+      <span style="color:var(--text-secondary)">append 就是让长颈鹿长高。如果身体（cap）还够，脖子直接伸长就行（在原底层数组上追加）。但如果身体不够了——那就得换一具更大的新身体（分配新底层数组），把原来的身体数据搬过去，旧身体丢掉（靠 GC 回收）。这就是扩容：cap&lt;1024 时换 2 倍大的身体，cap≥1024 时换 1.25 倍。</span>
+    </div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🐘</div>
+    <div>
+      <strong style="color:var(--accent)">场景3：共享身体——两只长颈鹿看同一具身体</strong><br>
+      <span style="color:var(--text-secondary)">s2 := s1[1:3] 是什么意思？两只长颈鹿共享同一具水下身体！s2 的头指向 s1 身体的不同位置。危险的是：如果 s2 的脖子还够长（len &lt; cap），s2 append 可能改到 s1 的数据！就像一只鹿吃了某种药，结果两只鹿的身体都变了——因为它们根本是同一具身体。</span>
+    </div>
+  </div>
+</section>
+
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">👀</span>
+    <div class="metaphor-title">ptr = 头</div>
+    <div class="metaphor-desc">指向底层数组的起始位置，决定视图从哪里开始</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">📏</span>
+    <div class="metaphor-title">len = 脖子</div>
+    <div class="metaphor-desc">当前能用到的长度，只能看到脖子以内的元素</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">🏊</span>
+    <div class="metaphor-title">cap = 身体</div>
+    <div class="metaphor-desc">藏在水下的真实容量，append 先吃身体，不够了换更大的</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🔄</span>
+    <div class="metaphor-title">扩容 = 换身体</div>
+    <div class="metaphor-desc">cap&lt;1024 换 2 倍大身体，cap≥1024 换 1.25 倍，旧身体被 GC</div>
+  </div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么，底层结构</h4>
+      <p>Slice 是 Go 中动态数组，底层是 runtime 的 slice 结构体：<br>
+      <code>type slice struct { array unsafe.Pointer; len int; cap int }</code><br>
+      <strong>ptr</strong>：指向底层数组的指针；<strong>len</strong>：当前元素个数；<strong>cap</strong>：从 ptr 开始到底层数组末尾的容量。Slice 是对底层数组的一个"窗口视图"。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要 Slice（vs Array）</h4>
+      <p>Array 长度固定且是类型的一部分（[3]int 和 [5]int 是不同类型），无法动态增长。Slice 提供动态长度的数组视图，可以 append 追加元素、切片操作创建子视图、作为函数参数传递时只复制 header（24 字节），避免了 array 的全量拷贝。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — append 扩容策略详解</h4>
+      <p>当 len + 新元素数 &gt; cap 时触发扩容（growslice）：<br>
+      ① 预估新容量：若 old.cap &lt; 1024 → newcap = 2 × old.cap；若 old.cap ≥ 1024 → newcap = old.cap × 1.25（循环直到够用）；<br>
+      ② 内存对齐：根据元素大小向上取整到 Go 内存分配器的大小类（如 8, 16, 32, 48, 64, 80, 96...）；<br>
+      ③ 分配新底层数组并复制旧数据，返回指向新数组的 slice。这也是 append 必须接收返回值的原因。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 共享底层数组的坑</h4>
+      <div class="code-block">
+<span class="comment">// 经典坑：切片后共享底层数组</span>
+s1 := []<span class="keyword">int</span>{1, 2, 3, 4, 5}
+s2 := s1[1:3]  <span class="comment">// s2 = [2,3], len=2, cap=4（cap = s1.cap - 1）</span>
+s2 = <span class="func">append</span>(s2, 99) <span class="comment">// len=3 &lt; cap=4，在底层数组位置 3 写入 99</span>
+<span class="comment">// s1 变成了 [1,2,3,99,5]！s1 的第四个元素被修改了</span></div>
+    </div>
+    <div class="step">
+      <h4>Step 5 — nil slice vs empty slice</h4>
+      <p><strong>nil slice</strong>：<code>var s []int</code> → len=0, cap=0, ptr=nil。JSON 序列化为 null。可作为函数返回值表示"无结果"。<br>
+      <strong>empty slice</strong>：<code>s := []int{}</code> 或 <code>s := make([]int, 0)</code> → len=0, cap=0, ptr 指向 zerobase 地址（非 nil）。JSON 序列化为 []。语义上 nil slice = 不存在，empty slice = 存在但为空。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 避免坑的最佳实践</h4>
+      <p>① 切片操作后用 <code>copy(dst, src)</code> 创建独立副本：<code>s2 := make([]int, len(s1[i:j])); copy(s2, s1[i:j])</code>；② 预分配容量减少扩容：<code>make([]int, 0, expectedLen)</code>；③ 使用 <code>s = append(s, x)</code> 接受返回值，不要用 <code>_ = append(s, x)</code>；④ 函数返回 slice 时注意底层数组的生命周期（大 slice 的引用会阻止 GC 回收整个底层数组）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地场景</h4>
+      <p>① 批量数据处理：<code>make([]Record, 0, batchSize)</code> 预分配减少扩容次数；② 字符串处理：用 <code>[]byte</code> 操作后转 <code>string()</code> 减少内存分配；③ 函数参数：传 slice header（24 字节）而非 array；④ 栈内存：小 slice 可分配在栈上（逃逸分析决定），大 slice 逃逸到堆。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Slice 底层是 ptr + len + cap 三个字段的结构体。ptr 指向底层数组，len 是当前长度，cap 是容量。append 扩容时：cap 小于 1024 翻倍，大于等于 1024 增长 1.25 倍，然后内存对齐取整，分配新数组并复制数据。最大坑：切片操作共享底层数组，改子切片会影响原切片。解决办法：用 copy 创建独立副本。nil slice 的 ptr 是 nil，empty slice 的 ptr 是 zerobase 非 nil 地址。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"slice 就是动态数组"（没解释底层结构 ptr+len+cap）</li>
+        <li>"slice 和 array 是一样的"（array 长度是类型一部分且固定，slice 是 header 引用）</li>
+        <li>"append 一直翻倍"（cap ≥ 1024 后不是翻倍，是 1.25 倍）</li>
+        <li>"切片操作创建了新数组"（没有！切片操作共享底层数组，这是大坑）</li>
+        <li>"nil slice 和 empty slice 一样"（ptr 不同，JSON 序列化不同，语义不同）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"slice 是 header 结构体（ptr+len+cap），底层数组独立存储"</li>
+        <li>"slice 是对数组的窗口视图，array 长度固定是类型一部分"</li>
+        <li>"扩容：cap&lt;1024 → 2×，cap≥1024 → 1.25×，最后内存对齐到 size class"</li>
+        <li>"s1[i:j] 共享底层数组，append 后可能影响原 slice"</li>
+        <li>"nil slice: ptr=nil；empty slice: ptr=&zerobase（非 nil 地址）"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">🍕 Slice</div>
+    <div class="branch">├─ <span class="arrow">→</span> 底层结构</div>
+    <div class="leaf">│  ├─ slice struct { array unsafe.Pointer; len int; cap int }</div>
+    <div class="leaf">│  ├─ len：当前元素个数（通过 len() 获取）</div>
+    <div class="leaf">│  ├─ cap：从 ptr 开始到底层数组末尾的容量（通过 cap() 获取）</div>
+    <div class="leaf">│  └─ 传递 slice 只复制 24 字节 header，底层数组是共享的</div>
+    <div class="branch">├─ <span class="arrow">→</span> 与 Array 的区别</div>
+    <div class="leaf">│  ├─ Array：[N]T，长度是类型的一部分，不可变</div>
+    <div class="leaf">│  ├─ Slice：[]T，header + 底层数组，可动态增长</div>
+    <div class="leaf">│  └─ slice := array[i:j]：创建引用底层数组的 slice</div>
+    <div class="branch">├─ <span class="arrow">→</span> append 扩容策略</div>
+    <div class="leaf">│  ├─ cap &lt; 1024：newcap = oldcap × 2</div>
+    <div class="leaf">│  ├─ cap ≥ 1024：newcap = oldcap × 1.25（循环至足够）</div>
+    <div class="leaf">│  ├─ 内存对齐：growslice() 中 roundupsize() 对齐到 size class</div>
+    <div class="leaf">│  └─ 必须用 <code>s = append(s, v)</code>，扩容可能返回新底层数组</div>
+    <div class="branch">├─ <span class="arrow">→</span> 共享底层数组的坑</div>
+    <div class="leaf">│  ├─ 切片操作 s[i:j] 不拷贝数据，只创建新 header</div>
+    <div class="leaf">│  ├─ append 子切片可能修改原切片未预期的位置</div>
+    <div class="leaf">│  ├─ 解决方案：copy(dst, src) 创建真正独立的副本</div>
+    <div class="leaf">│  └─ 大 slice 的微小引用会阻止整个底层数组被 GC</div>
+    <div class="branch">└─ <span class="arrow">→</span> nil slice vs empty slice</div>
+    <div class="leaf">   ├─ var s []int → nil: len=0, cap=0, ptr=nil</div>
+    <div class="leaf">   ├─ s := []int{} → empty: len=0, cap=0, ptr=&zerobase</div>
+    <div class="leaf">   ├─ json.Marshal: nil → "null", empty → "[]"</div>
+    <div class="leaf">   └─ nil slice: 表示"没有"，empty slice: 表示"有但是空的"</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"Slice 像长颈鹿：头（ptr）看到哪里、脖子（len）用多长、身体（cap）能装多少。身体不够用了就找一具新的（扩容+复制），原来的身体丢掉（原底层数组靠 GC 回收）。切片操作就像让另一只长颈鹿把头伸过来看同一具身体——一只吃东西（append），另一只也会受影响。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 说出 slice 底层 header 的三个字段（ptr, len, cap）</li>
+    <li><input type="checkbox"> 写出完整的 append 扩容策略（&lt;1024 加倍，≥1024 加 25%，内存对齐）</li>
+    <li><input type="checkbox"> 解释切片操作共享底层数组的含义，并给出坑的代码示例</li>
+    <li><input type="checkbox"> 说清 nil slice 和 empty slice 的三个区别（ptr、JSON 序列化、语义）</li>
+    <li><input type="checkbox"> 写出用 copy 创建独立 slice 副本的正确代码</li>
+    <li><input type="checkbox"> 解释为什么 append 必须接收返回值（扩容可能返回新底层数组）</li>
+    <li><input type="checkbox"> 举例 slice 预分配容量（make 第三个参数）的优化场景</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

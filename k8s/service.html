@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K8S-03 Service 服务发现 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="index.html" class="k8s-link active">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">K8s</a> &rsaquo; Service 服务发现</div>
+  <h1>☸️ Service 服务发现</h1>
+  <div class="meta">
+    <span>编号 K8S-03</span>
+    <span>分类：网络</span>
+    <span>难度：⭐⭐⭐⭐</span>
+    <span>频率：必问</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Service 通过 Label Selector 将请求负载均衡到 Pod。三种类型：ClusterIP（集群内访问，默认）、NodePort（节点端口映射，30000-32767）、LoadBalancer（云厂商 LB）。通过 kube-proxy 实现（iptables / IPVS 模式）。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「餐厅领位员」看懂 Service 服务发现</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">👩‍💼</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：Service = 餐厅领位员</strong><br><span style="color:var(--text-secondary)">顾客（请求）来了，不管后厨哪个厨师掌勺、换了几拨人（Pod 增删变化），只认领位员（Service 的稳定 ClusterIP）。领位员通过标签（Label Selector：app=nginx）识别谁是后厨员工（后端 Pod），把客人带到空闲厨师面前（负载均衡）。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">👩‍💼</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">📞</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：ClusterIP = 内部订餐热线</strong><br><span style="color:var(--text-secondary)">只有餐厅内部员工能打的订餐电话（集群内可达）。微服务之间互相调用就靠这个——<code>my-svc.default.svc.cluster.local</code> 是 DNS 名称，Pod 重建了 IP 变了也没关系，名字不变。默认类型，最常用。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🪟</div>
+    <div>
+      <strong style="color:var(--warning)">场景3：NodePort = 外卖窗口</strong><br><span style="color:var(--text-secondary)">在餐厅墙上开了个外卖窗口（每个节点开端口 30000-32767），路人可以通过 <strong style="color:#fbbf24">节点IP:端口</strong> 点餐。方便是方便，但窗口多了管理麻烦，直接暴露也有安全风险。一般只在测试环境用，前面要再加个 LB。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">🏛️</div>
+    <div>
+      <strong style="color:#34d399">场景4：LoadBalancer = 大堂入口</strong><br><span style="color:var(--text-secondary)">商场给餐厅分配了一个正式大堂入口（云厂商 LB），路人从商场正门进来直接被引导到餐厅。底层其实还是先建了外卖窗口（NodePort）+ 商场前台（LB）转发过来。每开一家新餐厅就要一个新入口，成本高——所以后来有了 Ingress（共享前台）。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">👩‍💼</span>
+    <div class="metaphor-title">Service角色</div>
+    <div class="metaphor-desc">领位员不看后厨换人
+稳定IP+自动LB</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">📞</span>
+    <div class="metaphor-title">ClusterIP</div>
+    <div class="metaphor-desc">内部订餐热线
+集群内可达默认模式</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">🪟</span>
+    <div class="metaphor-title">NodePort</div>
+    <div class="metaphor-desc">外卖窗口30000-32767
+节点端口直接暴露</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🏛️</span>
+    <div class="metaphor-title">LoadBalancer</div>
+    <div class="metaphor-desc">大堂入口
+云厂商LB+NodePort</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>Service 是 K8s 中将一组 Pod 暴露为网络服务的抽象。Pod IP 会变（重建后变化），Service 提供一个稳定的虚拟 IP（ClusterIP）和 DNS 名称，客户端通过 Service 访问后端 Pod，无需关心 Pod 的 IP 变化。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>Pod 是"易失的"——IP 不固定、随时可能被替换。如果前端直接连 Pod IP，Pod 重启后 IP 变了就失联。Service 提供稳定的访问入口 + 自动负载均衡 + 服务发现，解决了"动态 Pod 如何被稳定访问"的问题。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>实现"服务发现"和"负载均衡"：①前端不需要知道后端 Pod IP 和数量变化；②自动负载均衡到健康的 Pod（通过 readiness probe）；③通过 DNS 名称（如 <code>my-svc.default.svc.cluster.local</code>）简化服务间调用。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>Service 通过 Label Selector 匹配目标 Pod，维护 Endpoints 列表（健康 Pod 的 IP:Port）。kube-proxy 在每个节点上运行，将访问 Service ClusterIP 的流量转发到后端 Pod。iptables 模式（随机负载均衡，规则随 Pod 增多而膨胀）→ IPVS 模式（支持多种调度算法：rr/lc/dh/sh，性能更好）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① ClusterIP 只在集群内可访问；② iptables 模式下大量 Service 时规则爆炸（IPVS 改善）；③ 默认负载均衡是随机/轮询（无会话保持时需要额外配置 sessionAffinity）；④ NodePort 端口范围有限（30000-32767）且安全风险高；⑤ 不支持 7 层路由（需要 Ingress）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① 外部访问用 NodePort/LoadBalancer 或 Ingress；② 大规模集群用 IPVS 模式替代 iptables；③ 需要会话保持配置 <code>sessionAffinity: ClientIP</code>；④ NodePort 生产环境避免直接暴露，前面加 LB；⑤ 7 层路由用 Ingress + Ingress Controller。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>典型三层架构：前端 Deployment → ClusterIP Service（内部）→ 后端 Deployment → ClusterIP Service（内部）→ 数据库 StatefulSet。外部入口：LoadBalancer Service 或 Ingress。配置示例：<code>kubectl expose deploy/nginx --port=80 --target-port=80 --type=ClusterIP</code>。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Service 是 K8s 的服务发现和负载均衡抽象。三种类型：①ClusterIP——集群内部访问，默认；②NodePort——在每个节点开一个端口（30000-32767）；③LoadBalancer——云厂商分配公网 LB。底层由 kube-proxy 实现：iptables（规则链，默认）或 IPVS（内核 L4 LB，性能更好）。Pod 通过 Service 名 + DNS 互相访问，IP 变化了也没关系。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"Service 和 Pod 是一一对应的"（一对多，负载均衡到多个 Pod）</li>
+        <li>"ClusterIP 可以从外部访问"（只能集群内部访问）</li>
+        <li>"NodePort 端口可以随便设"（范围 30000-32767）</li>
+        <li>"Service 是 7 层负载均衡"（是 L4 四层，按 IP:Port 转发）</li>
+        <li>"iptables 和 IPVS 一样"（IPVS 支持多种调度算法、性能更好）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"Service 通过 Label Selector 匹配后端 Pod，一对多负载均衡"</li>
+        <li>"ClusterIP 只能集群内部访问，外部访问需 NodePort/LoadBalancer/Ingress"</li>
+        <li>"NodePort 默认范围 30000-32767，可通过 --service-node-port-range 调整"</li>
+        <li>"Service 是 L4 四层负载均衡，7 层路由需 Ingress"</li>
+        <li>"IPVS 支持 rr/lc/dh/sh 等调度算法，iptables 只有随机"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">☸️ Service</div>
+    <div class="branch">├─ <span class="arrow">→</span> Label Selector</div>
+    <div class="leaf">│  ├─ 通过标签匹配后端 Pod（app=nginx）</div>
+    <div class="leaf">│  ├─ 动态维护 Endpoints 列表</div>
+    <div class="leaf">│  └─ Pod 增删 → Endpoints 自动更新</div>
+    <div class="branch">├─ <span class="arrow">→</span> ClusterIP（内部访问，默认）</div>
+    <div class="leaf">│  ├─ 分配虚拟 IP（仅集群内可达）</div>
+    <div class="leaf">│  ├─ DNS 名称：svc-name.namespace.svc.cluster.local</div>
+    <div class="leaf">│  └─ 最常用：微服务间互相调用</div>
+    <div class="branch">├─ <span class="arrow">→</span> NodePort（节点端口映射）</div>
+    <div class="leaf">│  ├─ 每个节点开放端口（30000-32767）</div>
+    <div class="leaf">│  ├─ 外部可通过 &lt;NodeIP&gt;:&lt;NodePort&gt; 访问</div>
+    <div class="leaf">│  └─ 测试/演示环境常用</div>
+    <div class="branch">├─ <span class="arrow">→</span> LoadBalancer（云厂商 LB）</div>
+    <div class="leaf">│  ├─ 云厂商自动创建 LB（AWS ELB/Aliyun SLB）</div>
+    <div class="leaf">│  ├─ 底层创建 NodePort + LB 转发</div>
+    <div class="leaf">│  ├─ 每 Service 一个 LB（成本高）</div>
+    <div class="leaf">│  └─ 生产环境推荐用 Ingress 统一入口</div>
+    <div class="branch">├─ <span class="arrow">→</span> kube-proxy 模式</div>
+    <div class="leaf">│  ├─ iptables：规则链，随机负载均衡，规则多时性能下降</div>
+    <div class="leaf">│  ├─ IPVS：内核 L4 LB，支持 rr/lc/dh/sh/sed/nq 调度算法</div>
+    <div class="leaf">│  └─ 大规模集群强烈建议 IPVS</div>
+    <div class="branch">├─ <span class="arrow">→</span> Headless Service</div>
+    <div class="leaf">│  ├─ clusterIP: None，无虚拟 IP</div>
+    <div class="leaf">│  ├─ DNS 直接返回所有 Pod IP（不经过 Service 代理）</div>
+    <div class="leaf">│  └─ 场景：StatefulSet 需要直接访问特定 Pod、自定义负载均衡</div>
+    <div class="branch">└─ <span class="arrow">→</span> Endpoints / EndpointSlice</div>
+    <div class="leaf">   ├─ Endpoints：保存健康 Pod 的 IP:Port</div>
+    <div class="leaf">   ├─ EndpointSlice（K8s 1.21+）：替代 Endpoints，更高效</div>
+    <div class="leaf">   └─ 按 Service 组织，kube-proxy 据此更新转发规则</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"Service = 餐厅领位员：不管后厨谁在做菜（Pod 变化），顾客（请求）只认领位员；ClusterIP = 内部订餐、NodePort = 外卖窗口、LoadBalancer = 大堂入口"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 说出三种 Service 类型的名称、区别和使用场景</li>
+    <li><input type="checkbox"> 解释 Label Selector 如何动态维护 Endpoints</li>
+    <li><input type="checkbox"> 对比 iptables 和 IPVS 模式的区别</li>
+    <li><input type="checkbox"> 写出完整的 Service DNS 名称格式</li>
+    <li><input type="checkbox"> 解释 Headless Service 的用途和原理</li>
+    <li><input type="checkbox"> 说明 NodePort 的端口范围和为什么不建议直接暴露</li>
+    <li><input type="checkbox"> 解释 LoadBalancer 的实现原理（底层依赖 NodePort）</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

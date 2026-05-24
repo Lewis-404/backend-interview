@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>grep 文本搜索 — Linux 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link active">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+  <div class="interview-header">
+    <div class="breadcrumb"><a href="../linux/index.html">Linux</a> / grep 文本搜索</div>
+    <h1>grep — 文本搜索利器</h1>
+    <div class="meta"><span>编号：LINUX-03</span><span>难度：⭐⭐</span><span>频率：🔥🔥🔥🔥🔥</span></div>
+  </div>
+
+  <div class="summary-box anim-scale">
+    <div class="label">💡 一句话结论</div>
+    <div class="one-liner">grep（Global Regular Expression Print）是文本搜索利器。grep pattern file 搜索匹配行。核心参数：-i 忽略大小写 / -v 反向匹配 / -r 递归 / -n 显示行号 / -A/B/C 上下文行 / -E 扩展正则 / -c 计数。常与管道组合。</div>
+  </div>
+
+  <!-- ====== 🎬 生活类比故事 ====== -->
+  <section class="story-section">
+    <div class="story-label">🎬 生活类比 — grep = 海底捞针的磁铁</div>
+    <div class="story-title">用「寻宝」看懂 grep 全部参数</div>
+
+    <div class="story-scene anim-fade-left">
+      <div class="scene-icon">🧲</div>
+      <div>
+        <strong style="color:var(--accent)">场景1：grep = 一把能识别材质的磁铁</strong><br>
+        <span style="color:var(--text-secondary)">你在一个装满杂物的巨型仓库里找所有铁制品。<strong style="color:#fbbf24">grep "pattern" file</strong> 就是那把磁铁——它扫过每一排货架（每行），吸出所有含铁的东西（匹配行）。仓库太大？<strong style="color:#fbbf24">grep -r 递归搜索</strong> = 每个抽屉都翻一遍。</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-right delay-200">
+      <div class="scene-icon">🎨</div>
+      <div>
+        <strong style="color:var(--accent)">场景2：-i = 不分颜色，-v = 反过来找</strong><br>
+        <span style="color:var(--text-secondary)"><strong style="color:#fbbf24">grep -i "GOLD"</strong> = 不管金色银色铜色，只要是金属都算（忽略大小写）。<strong style="color:#fbbf24">grep -v "铁"</strong> = 反过来——把所有不含铁的杂物找出来（反向匹配）。清理仓库时，先把不是铁的拣出来扔掉。</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-left delay-400">
+      <div class="scene-icon">📍</div>
+      <div>
+        <strong style="color:var(--accent)">场景3：-n = 给你坐标，-C = 连邻居一起看</strong><br>
+        <span style="color:var(--text-secondary)"><strong style="color:#fbbf24">grep -n</strong> = 不仅告诉你找到了，还告诉你在第几排第几个货架（行号）。<strong style="color:#fbbf24">grep -C 5</strong> = 把找到的物品前后 5 个邻居也一起展示——排查问题时，上下文比物品本身更重要。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 技术映射卡片 ====== -->
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <span class="metaphor-emoji">🧲</span>
+      <div class="metaphor-title">grep pattern</div>
+      <div class="metaphor-desc">磁铁吸铁<br>找出所有匹配行</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <span class="metaphor-emoji">🎨</span>
+      <div class="metaphor-title">-i / -v</div>
+      <div class="metaphor-desc">不分颜色 / 反着来<br>大小写都算 / 排除法</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <span class="metaphor-emoji">🔍</span>
+      <div class="metaphor-title">-r / -n</div>
+      <div class="metaphor-desc">每个抽屉翻 / 报坐标<br>递归搜索 + 行号定位</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-400">
+      <span class="metaphor-emoji">👥</span>
+      <div class="metaphor-title">-C 上下文</div>
+      <div class="metaphor-desc">连邻居一起看<br>-A后 -B前 -C前后</div>
+    </div>
+  </div>
+
+  <div class="section highlight anim-fade-up">
+    <h3><span class="emoji">📋</span> 7步答题模板</h3>
+    <div class="answer-template">
+      <div class="step"><h4>第一步：一句话定义</h4><p>grep 是 Linux 三剑客之一，用于文本搜索和过滤。它能用正则表达式在文件中查找匹配行，并输出结果。名称来自 ed 编辑器命令 g/re/p。</p></div>
+      <div class="step"><h4>第二步：基础语法</h4><p>grep [options] pattern [file...]。最简单的用法：grep "error" app.log。pattern 支持正则表达式（默认 BRE），-E 启用扩展正则（ERE），-P 启用 Perl 正则。</p></div>
+      <div class="step"><h4>第三步：核心六参数</h4><p>-i（ignore case 忽略大小写）、-v（invert 反向匹配，输出不匹配的行）、-r（recursive 递归搜索目录）、-n（line number 显示行号）、-c（count 只显示匹配行数）、-o（only-matching 只输出匹配部分而非整行）。</p></div>
+      <div class="step"><h4>第四步：上下文查看</h4><p>-A N（After，匹配行之后 N 行）、-B N（Before，匹配行之前 N 行）、-C N（Context，前后各 N 行）。日志排查时的标配：grep -C 5 "error" app.log。</p></div>
+      <div class="step"><h4>第五步：管道组合（实战核心）</h4><p>grep 的价值在管道中放大。经典组合：ps aux | grep nginx（查看 nginx 进程）、tail -f app.log | grep ERROR（实时过滤错误）、cat access.log | grep 404 | awk '{print $1}'（找 404 的来源 IP）。</p></div>
+      <div class="step"><h4>第六步：正则技巧</h4><p>grep -E "error|fail|panic" log（或关系）、grep "^2024-" log（匹配行首）、grep "timeout$" log（匹配行尾）、grep -E "[0-9]+ms" log（匹配数字+ms）。</p></div>
+      <div class="step"><h4>第七步：性能与进阶</h4><p>大数据用 fgrep（grep -F）做固定字符串匹配，不用正则更快。grep --exclude="*.log" pattern * 排除特定文件。大文件配合 head/tail 减少扫描量。</p></div>
+    </div>
+  </div>
+
+  <div class="timer-box">
+    <div class="timer-icon">⏱️</div>
+    <div>
+      <div class="timer-label">60秒面试表达</div>
+      <div class="timer-text">"grep 是文本搜索的核心工具，支持正则匹配。日常最常用的是 -i 忽略大小写、-v 反向匹配、-r 递归、-n 行号、-c 计数。排查日志时 -C 看上下文非常有用。grep 的真正威力在管道组合——ps aux | grep、tail -f | grep ERROR 这些是日常标配。大数据场景可以用 fgrep 固定字符串，比正则快很多。"</div>
+    </div>
+  </div>
+
+  <div class="section warning-zone">
+    <h3><span class="emoji">⚠️</span> 面试常见错误 vs 正确回答</h3>
+    <div class="compare">
+      <div class="col before">
+        <h4>❌ 错误回答</h4>
+        <p>"grep 就是搜索关键词的"<br><br>"grep 只能搜一个文件"<br><br>"grep 很慢，不适合大文件"</p>
+      </div>
+      <div class="col after">
+        <h4>✅ 正确回答</h4>
+        <p>"grep 支持完整的正则表达式，可以做复杂的模式匹配"<br><br>"-r 递归搜索整个目录树，-l 只列出文件名"<br><br>"用 -F 固定字符串匹配对大数据很快，或者配合 head -n 限制扫描量"</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim-fade-up">
+    <h3><span class="emoji">🌲</span> 追问树</h3>
+    <div class="tree">
+      <span class="node">grep</span><br>
+      <span class="branch">├─ 基础语法 grep pattern file</span><br>
+      <span class="leaf">→ 支持正则（BRE/ERE/Perl）</span><br>
+      <span class="branch">├─ 常用参数有哪些？</span><br>
+      <span class="leaf">→ -i 忽略大小写 / -v 反向 / -r 递归 / -n 行号 / -c 计数</span><br>
+      <span class="branch">├─ 正则怎么用？</span><br>
+      <span class="leaf">→ -E 扩展正则（ERE），-P Perl 正则，grep "error\|panic" log</span><br>
+      <span class="branch">├─ 怎么看上下文？</span><br>
+      <span class="leaf">→ -A after / -B before / -C context，如 -C 5 前后各5行</span><br>
+      <span class="branch">├─ 管道里怎么用？</span><br>
+      <span class="leaf">→ ps aux | grep xxx / tail -f log | grep ERROR</span><br>
+      <span class="branch">└─ 性能怎么优化？</span><br>
+      <span class="leaf">→ 大数据用 fgrep（-F 固定字符串），比正则快</span>
+    </div>
+  </div>
+
+  <div class="memory-hook">
+    <div class="hook-label">🧠 记忆钩子</div>
+    <div class="hook-text">"grep = 海底捞针的磁铁：-i = 不分颜色、-v = 反过来找、-r = 每个抽屉翻、-n = 告诉你第几排第几个、-C = 连前后邻居一起看"</div>
+  </div>
+
+  <div class="section success-zone">
+    <h3><span class="emoji">✅</span> 自检清单</h3>
+    <ul class="check-list">
+      <li><input type="checkbox"> grep -E 和 grep -P 的区别能说清楚吗？</li>
+      <li><input type="checkbox"> 面试官问"查找 app.log 中 ERROR 前后 5 行"，能立刻写出命令？</li>
+      <li><input type="checkbox"> -v 反向匹配的实际场景是什么？</li>
+      <li><input type="checkbox"> 为什么 ps aux | grep xxx 会看到 grep 自己？怎么过滤？</li>
+      <li><input type="checkbox"> fgrep 比 grep 快，什么原理？</li>
+      <li><input type="checkbox"> grep、egrep、fgrep、rg（ripgrep）的关系？</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

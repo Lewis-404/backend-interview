@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>持久化RDB vs AOF — Redis 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+/* ===== Animation Keyframes ===== */
+@keyframes scaleIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes fadeUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes fadeLeft { from { transform: translateX(-40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes fadeRight { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.anim-scale, .anim-fade-up, .anim-fade-left, .anim-fade-right { opacity: 0; }
+.anim-scale.visible { animation: scaleIn 0.6s ease-out forwards; }
+.anim-fade-up.visible { animation: fadeUp 0.65s ease-out forwards; }
+.anim-fade-left.visible { animation: fadeLeft 0.6s ease-out forwards; }
+.anim-fade-right.visible { animation: fadeRight 0.6s ease-out forwards; }
+.delay-100.visible { animation-delay: 0.1s; } .delay-200.visible { animation-delay: 0.2s; }
+.delay-300.visible { animation-delay: 0.3s; } .delay-400.visible { animation-delay: 0.4s; }
+.delay-500.visible { animation-delay: 0.5s; } .delay-600.visible { animation-delay: 0.6s; }
+
+/* ===== Metaphor Section ===== */
+.metaphor-section { background: linear-gradient(135deg, #fef9e7 0%, #fff8e1 100%); border: 1px solid #f9e79f; border-radius: 16px; padding: 32px 28px; margin: 28px 0; position: relative; overflow: hidden; }
+.metaphor-section::before { content: "🏮"; position: absolute; top: 16px; right: 20px; font-size: 48px; opacity: 0.15; }
+.metaphor-title { font-size: 1.25em; font-weight: 700; color: #d4a017; margin-bottom: 6px; }
+.metaphor-subtitle { font-size: 0.88em; color: #8b7355; margin-bottom: 20px; }
+.story-block { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+@media (max-width: 768px) { .story-block { grid-template-columns: 1fr; } }
+.story-card { background: #fff; border-radius: 12px; padding: 18px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid #f39c12; }
+.story-card h5 { margin: 0 0 8px; font-size: 1em; color: #e67e22; display: flex; align-items: center; gap: 6px; }
+.story-card h5 .icon { font-size: 1.3em; }
+.story-card p { margin: 0; font-size: 0.9em; color: #555; line-height: 1.6; }
+.metaphor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.metaphor-card { background: #fff; border-radius: 10px; padding: 14px 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); text-align: center; border-top: 3px solid #f39c12; }
+.metaphor-card .m-icon { font-size: 1.8em; margin-bottom: 6px; }
+.metaphor-card .m-term { font-weight: 700; font-size: 0.85em; color: #d4a017; margin-bottom: 4px; }
+.metaphor-card .m-desc { font-size: 0.8em; color: #777; }
+</style>
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="index.html" class="redis-link active">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+<div class="interview-header">
+  <div class="breadcrumb"><a href="index.html">Redis</a> / 持久化</div>
+  <h1>#4 持久化：RDB vs AOF</h1>
+  <div class="meta">
+    <span>📚 难度：中高级</span>
+    <span>⏱️ 建议作答：4-5 分钟</span>
+    <span>🔖 标签：持久化 / RDB / AOF / 混合持久化</span>
+  </div>
+</div>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">RDB是<strong>快照持久化</strong>（fork子进程+COW写时复制，恢复快但会丢数据），AOF是<strong>追加写命令日志</strong>（数据安全但恢复慢文件大）。Redis 4.0+引入<strong>混合持久化</strong>：RDB快照 + AOF增量日志，兼顾恢复速度和数据安全，是生产环境首选。</div>
+</div>
+
+<section class="metaphor-section anim-fade-up">
+  <div class="metaphor-title">🏮 生活类比：拍照 vs 录像</div>
+  <div class="metaphor-subtitle">把技术概念映射到「记录生活」的场景，秒懂 RDB 和 AOF</div>
+  <div class="story-block">
+    <div class="story-card anim-fade-left delay-200">
+      <h5><span class="icon">📸</span> RDB = 定时拍照</h5>
+      <p>你每隔一小时拍一张全家福（快照）。照片清晰、体积小、翻看快。但两次拍照之间的精彩瞬间——比如宝宝第一次走路——没拍到就永远丢了。</p>
+    </div>
+    <div class="story-card anim-fade-right delay-400">
+      <h5><span class="icon">🎥</span> AOF = 全程录像</h5>
+      <p>摄像机从进门就开始录（append），每一秒的画面都记录在案。任何细节都不会丢，但录像文件巨大，想找到某个瞬间得从头看到尾（恢复慢）。</p>
+    </div>
+    <div class="story-card anim-fade-left delay-600">
+      <h5><span class="icon">📸+🎥</span> 混合持久化</h5>
+      <p>先拍一张全家福（RDB 快照），然后摄像机继续录后面发生的事（AOF 增量）。想看回放？从照片开始看，再看后续录像——又快又全。这就是 Redis 4.0 的混合持久化。</p>
+    </div>
+  </div>
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <div class="m-icon">📸</div>
+      <div class="m-term">RDB</div>
+      <div class="m-desc">拍照快照</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <div class="m-icon">🎥</div>
+      <div class="m-term">AOF</div>
+      <div class="m-desc">全程录像</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <div class="m-icon">📸🎥</div>
+      <div class="m-term">混合持久化</div>
+      <div class="m-desc">拍照后继续录像</div>
+    </div>
+  </div>
+</section>
+
+
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>是什么（定义）</h4>
+      <p>Redis是内存数据库，数据都在内存中，断电即丢失。持久化就是把内存数据保存到磁盘。Redis提供两种持久化机制：RDB（Redis Database Backup，全量快照）和AOF（Append Only File，增量命令日志）。</p>
+    </div>
+    <div class="step">
+      <h4>为什么需要（必要性）</h4>
+      <p>① 灾难恢复：宕机或重启后恢复数据。② 主从全量同步的基础：主节点生成的RDB文件传给从节点。③ 冷热数据分离：内存只存热数据，冷数据从磁盘恢复。④ 数据备份和迁移。</p>
+    </div>
+    <div class="step">
+      <h4>解决什么问题</h4>
+      <p>RDB解决：快速恢复（直接加载二进制快照，比逐条回放AOF快）。AOF解决：数据安全性（每一条写命令都记录，最多丢1秒数据甚至不丢）。混合持久化解决：恢复速度和数据安全的trade-off。</p>
+    </div>
+    <div class="step">
+      <h4>原理（RDB详解）</h4>
+      <p><strong>触发方式：</strong>save（阻塞主线程，生产禁用）/ bgsave（fork子进程后台执行）。<br/>
+      <strong>bgsave流程：</strong>① 主线程fork子进程 ② 子进程共享父进程的内存页（COW写时复制）③ 子进程遍历内存数据写入RDB文件 ④ 期间主线程继续处理请求，修改数据时触发COW复制内存页。<br/>
+      <strong>配置：</strong>save 900 1（900秒内1次修改触发）/ save 300 10 / save 60 10000。</p>
+      <p><strong>AOF原理：</strong>每条写命令追加到AOF文件末尾（文本协议）。<br/>
+      <strong>fsync策略：</strong>always（每条命令都fsync，最安全最慢）/ everysec（每秒一次，默认，最多丢1秒数据）/ no（由操作系统决定，可能丢30秒数据）。<br/>
+      <strong>AOF重写：</strong>fork子进程分析AOF，将多条对同一Key的操作合并为一条（如lpush list a; lpush list b → lpush list a b），压缩文件体积。</p>
+    </div>
+    <div class="step">
+      <h4>缺点与权衡</h4>
+      <p>RDB缺点：① 两次快照之间宕机会丢失数据 ② fork子进程时内存翻倍风险（COW情况下父进程大量写入导致复制整个内存）③ bgsave期间写操作变慢（COW开销）。<br/>
+      AOF缺点：① 文件比RDB大（文本协议，同样数据集AOF通常比RDB大数倍）② 恢复速度慢（需逐条回放命令）③ fsync always严重影响性能 ④ AOF重写期间fork也会占用资源。</p>
+    </div>
+    <div class="step">
+      <h4>如何解决缺点</h4>
+      <p>RDB丢失问题 → 开启AOF补充 or 使用混合持久化（4.0+）。AOF文件大 → AOF重写自动压缩 + 混合持久化将RDB二进制写入AOF文件前半部分。fork内存问题 → 控制单实例内存（建议<10GB），或使用无fork持久化方案（如定时SAVE+多实例）。</p>
+    </div>
+    <div class="step">
+      <h4>落地建议</h4>
+      <p><strong>推荐配置（4.0+）：</strong>开启混合持久化（aof-use-rdb-preamble yes）+ AOF everysec。这样AOF文件前半部分是RDB二进制快照（恢复快），后半部分是增量AOF日志（数据安全）。<br/>
+      <strong>极端场景：</strong>纯缓存（允许数据丢失）→ 关闭持久化，性能最佳。金融/账务 → AOF always + 定期bgsave备份。注意监控：最近一次bgsave状态、AOF文件大小、fork耗时。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⚡</div>
+    <div>
+      <div class="timer-label">面试官："RDB和AOF有什么区别？"</div>
+      <div class="timer-text">"RDB是定时全量快照，fork子进程通过COW写时复制把内存数据dump到磁盘，二进制格式，恢复快但可能丢数据（两次快照之间）。AOF是每条写命令追加到日志文件，支持三种fsync策略：always不丢数据但最慢，everysec最多丢1秒，no由OS决定。AOF文件大会自动重写压缩。Redis 4.0后推荐混合持久化——AOF文件前半是RDB快照后半是增量日志，兼顾速度和安全性。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 面试中注意 — 错误 vs 正确</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <p>"RDB就是AOF的压缩版"</p>
+      <p>"bgsave不会影响性能"</p>
+      <p>"AOF always模式生产环境常用"</p>
+      <p>"fork子进程不需要考虑内存"</p>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <p>"RDB是<strong>内存快照的二进制dump</strong>，AOF是<strong>写命令的文本日志</strong>，两者格式和原理完全不同，不是谁压缩谁的关系"</p>
+      <p>"bgsave虽不阻塞主线程，但fork操作本身会短暂卡顿（大内存下fork耗时数十到数百毫秒），且COW期间父进程写操作需要复制内存页，有性能开销"</p>
+      <p>"AOF always每条命令都fsync，<strong>性能极差</strong>（QPS可能从10万跌到几千），只有金融等极端场景使用。生产99%用everysec"</p>
+      <p>"fork子进程时父子共享内存页，如果父进程大量写入触发COW复制，<strong>内存占用可能翻倍</strong>，需预留内存余量"</p>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">持久化</div>
+    <div class="branch">├─ RDB深入
+      <div class="leaf">├─ bgsave流程：fork → COW共享 → 子进程写RDB → 父进程继续服务</div>
+      <div class="leaf">├─ COW原理：操作系统层面，父进程写时复制内存页（4KB粒度），子进程始终看到fork时刻的快照</div>
+      <div class="leaf">├─ save vs bgsave：save阻塞主线程（生产禁用），bgsave fork子进程（生产用）</div>
+      <div class="leaf">└─ 触发方式：手动SAVE/BGSAVE + 配置自动触发 + 主从全量同步 + shutdown save</div>
+    </div>
+    <div class="branch">├─ AOF深入
+      <div class="leaf">├─ 写回策略：always（每次事件循环都fsync）→ everysec（每秒刷盘一次）→ no（不主动fsync）</div>
+      <div class="leaf">├─ AOF rewrite流程：fork子进程 → 子进程写新AOF → 期间新命令写入AOF重写缓冲区 → 子进程完成后父进程追加缓冲区内容</div>
+      <div class="leaf">├─ rewrite触发：auto-aof-rewrite-percentage 100（增长100%）+ auto-aof-rewrite-min-size 64mb</div>
+      <div class="leaf">└─ AOF文件损坏修复：redis-check-aof --fix 工具</div>
+    </div>
+    <div class="branch">├─ 混合持久化（4.0+）
+      <div class="leaf">├─ 配置：aof-use-rdb-preamble yes</div>
+      <div class="leaf">├─ AOF文件结构：[RDB二进制快照][AOF增量日志]</div>
+      <div class="leaf">├─ rewrite时将当前内存数据生成RDB格式写在AOF文件开头</div>
+      <div class="leaf">└─ 优势：RDB的快速恢复 + AOF的少量丢失，最佳平衡</div>
+    </div>
+    <div class="branch">└─ 选择策略
+      <div class="leaf">├─ 数据安全优先 → 混合持久化 + AOF everysec</div>
+      <div class="leaf">├─ 性能优先（允许丢数据）→ RDB only 或关闭持久化</div>
+      <div class="leaf">├─ 极端安全 → AOF always + 定期bgsave备份</div>
+      <div class="leaf">└─ 内存控制 → 单实例≤10GB，监控fork耗时</div>
+    </div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"RDB = 拍照片（定时快照，快但可能错过瞬间），AOF = 开录像机（每条命令都记录，全但文件大回放慢），混合持久化 = 先拍一张照片，然后继续录像，下次看时从照片开始回放录像。COW（Copy-On-Write）= 父子共享一本笔记（内存），孩子抄笔记时（bgsave），爸爸只在要修改的那页复印一张新的再改（COW）。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检 Checklist</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 能说清RDB和AOF的本质区别（快照 vs 日志）</li>
+    <li><input type="checkbox"> 能描述bgsave的完整流程（fork → COW → 子进程写 → 父进程继续）</li>
+    <li><input type="checkbox"> 能解释COW写时复制的原理（粒度4KB，父进程写触发复制）</li>
+    <li><input type="checkbox"> 能对比三种AOF写回策略的性能和安全性（always/everysec/no）</li>
+    <li><input type="checkbox"> 能说出AOF重写的触发条件和流程</li>
+    <li><input type="checkbox"> 能解释混合持久化的文件结构和为什么是最佳方案</li>
+    <li><input type="checkbox"> 能举出不同场景的持久化配置推荐</li>
+    <li><input type="checkbox"> 能说出fork可能带来的风险（内存翻倍、卡顿）和应对措施</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <a href="cache-avalanche.html">← 上一题：缓存雪崩</a> &nbsp;|&nbsp;
+  <a href="replication.html">下一题：主从复制原理 →</a>
+</div>
+
+</div>
+
+<script>
+(function(){const o=new IntersectionObserver((e)=>{e.forEach(e=>{if(e.isIntersecting)e.target.classList.add("visible")})},{threshold:0.1,rootMargin:"0px 0px -40px 0px"});document.querySelectorAll(".anim-scale,.anim-fade-up,.anim-fade-left,.anim-fade-right").forEach(e=>o.observe(e))})();
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

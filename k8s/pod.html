@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K8S-01 Pod 详解 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="index.html" class="k8s-link active">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">K8s</a> &rsaquo; Pod 详解</div>
+  <h1>☸️ Pod 详解</h1>
+  <div class="meta">
+    <span>编号 K8S-01</span>
+    <span>分类：核心概念</span>
+    <span>难度：⭐⭐⭐⭐</span>
+    <span>频率：必问</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Pod 是 K8s 最小调度单元，共享 Network Namespace 和 IPC，可包含多个容器（共享 localhost + 共享 Volume）。Sidecar 模式（Pod 内辅助容器，如日志采集 / Envoy 代理）。Init 容器先于主容器运行完成。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「合租卧室」看懂 Pod 全部概念</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🛏️</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：Pod = 合租的卧室</strong><br><span style="color:var(--text-secondary)">一间卧室住两个人——共享 WiFi（Network Namespace）、共享书架（Volume）、共享门牌号（同一个 IP）。两个人是室友（容器），命运绑定：一起入住（调度）、一起退租（销毁）。这就是 Pod 把多个容器"打包"在一起的哲学。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">🛏️</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">📦</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：Sidecar = 室友帮你收快递</strong><br><span style="color:var(--text-secondary)">你（主容器）在写代码，室友（Sidecar）帮你收快递、倒垃圾、记日志——你专注自己的事，辅助工作他全包。典型：Nginx 容器跑 Web 服务 + Filebeat 容器采集日志。住在同一间房（Pod）的好处是可以用 localhost 通信，又快又简单。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🧹</div>
+    <div>
+      <strong style="color:var(--accent)">场景3：Init 容器 = 先打扫房间再入住</strong><br><span style="color:var(--text-secondary)">搬进去之前，先派个清洁阿姨（Init 容器）把房间打扫干净、检查水电（等数据库就绪）、铺好床单（初始化配置）。Init 容器做完就撤（退出），主容器才住进来。如果 Init 失败（打扫不干净），房间锁着不让住（Pod 卡在 Init 状态）。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">🏥</div>
+    <div>
+      <strong style="color:#34d399">场景4：探针 = 健康检查</strong><br><span style="color:var(--text-secondary)"><strong style="color:#34d399">liveness 探针</strong>——每隔一会敲敲门「你还活着吗？」没回应就踹门做心肺复苏（重启容器）。<strong style="color:#34d399">readiness 探针</strong>——「你准备好接客了吗？」没准备好就把门牌从服务名录里摘掉（从 Service 摘除）。<strong style="color:#34d399">startup 探针</strong>——慢热的室友，前 5 分钟不催他，启动了再换常规检查。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🛏️</span>
+    <div class="metaphor-title">Pod共享</div>
+    <div class="metaphor-desc">共享WiFi(网络)+书架(Volume)
+localhost互通</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">📦</span>
+    <div class="metaphor-title">Sidecar</div>
+    <div class="metaphor-desc">室友帮收快递
+辅助功能松耦合</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">🧹</span>
+    <div class="metaphor-title">Init容器</div>
+    <div class="metaphor-desc">先打扫再入住
+顺序执行必须成功</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🏥</span>
+    <div class="metaphor-title">探针三件套</div>
+    <div class="metaphor-desc">liveness/readiness/startup
+活没活着/能干活吗/启动中</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>Pod 是 Kubernetes 中最小的可调度和可管理单元。一个 Pod 包含一个或多个容器，这些容器共享相同的网络命名空间（localhost 互通）、IPC 命名空间和挂载的 Volume。Pod 是 K8s 的原子调度单位。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>Pod 的设计解决了一个核心问题：哪些进程需要紧密协作？比如 Web 服务 + 日志采集、应用 + 本地缓存。如果没有 Pod，这些紧密耦合的容器需要单独调度，网络通信和管理变得复杂。Pod 把它们"打包"在一起。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>解决"紧密耦合的容器如何作为一个整体被调度和管理"的问题。Pod 内所有容器共享网络（localhost）、共享存储（Volume）、命运共享（一起调度、一起终止）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>每个 Pod 有一个 Infra 容器（pause 容器），它创建并持有 Network Namespace 和其他 Namespace，Pod 内其他容器加入这些 Namespace。这就是为什么 Pod 内容器可以通过 localhost 通信，且共享同一个 IP。多容器模式：Sidecar（辅助进程，如日志采集）、Ambassador（代理外部服务，如 Envoy）、Adapter（标准化输出）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① Pod 内容器耦合度高（共享资源的容器一起被调度和扩缩）；② 一个容器崩溃可能影响整个 Pod；③ Pod IP 不是静态的（Pod 重建 IP 会变）；④ Init 容器失败会导致 Pod 一直处于 Init 状态无法启动；⑤ 不适合将无关服务放在同一个 Pod 中（违反单一职责）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① 只有真正紧密耦合的容器才放同一 Pod（Sidecar 模式）；② 使用 liveness/readiness/startup 探针实现健康检查和自动重启；③ 用 Service 提供稳定的访问入口（不依赖 Pod IP）；④ Init 容器加超时和重试机制；⑤ 无关服务用独立的 Deployment 管理。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>典型 Sidecar 场景：主容器跑 Nginx，Sidecar 容器跑 Filebeat 采集日志到 ES。Init 容器等待数据库就绪后再启动主容器：<code>initContainers: [{image: busybox, command: ['sh','-c','until nc -z mysql 3306; do sleep 2; done']}]</code>。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Pod 是 K8s 最小调度单元。核心特点：Pod 内所有容器共享网络（localhost 互通）和存储（Volume），通过 Infra 容器实现。三种多容器模式：Sidecar（辅助功能，如日志采集）、Ambassador（代理外部，如 Envoy）、Adapter（标准化输出）。Init 容器在主容器启动前运行且必须完成。Pod 的哲学是：把需要紧密协作的容器打包在一起，享受共享资源和命运共享。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"Pod 就是一个容器"（Pod 可以包含多个容器）</li>
+        <li>"Pod 内容器用 IP 通信"（直接 localhost 即可）</li>
+        <li>"Init 容器和普通容器一样"（Init 必须运行完成并退出，且顺序执行）</li>
+        <li>"随便把多个容器放一个 Pod"（应该是紧密耦合的容器才放一起）</li>
+        <li>"Pod IP 是固定的"（Pod 重建后 IP 会变化）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"Pod 是最小调度单元，可包含一个或多个容器"</li>
+        <li>"Pod 内容器共享 Network Namespace，可通过 localhost 通信"</li>
+        <li>"Init 容器顺序执行，每个必须成功退出后下一个才开始"</li>
+        <li>"只有紧密耦合的容器才放同一 Pod（如 Sidecar），松耦合用独立 Service"</li>
+        <li>"Pod IP 随 Pod 重建而变化，应通过 Service 访问"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">☸️ Pod</div>
+    <div class="branch">├─ <span class="arrow">→</span> 为什么是最小单元？</div>
+    <div class="leaf">│  ├─ 共享 Namespace（Network/IPC）</div>
+    <div class="leaf">│  ├─ Infra/pause 容器持有 Namespace</div>
+    <div class="leaf">│  └─ 紧密耦合进程需要共享资源</div>
+    <div class="branch">├─ <span class="arrow">→</span> 多容器模式</div>
+    <div class="leaf">│  ├─ Sidecar：辅助功能（日志采集 Filebeat、服务网格 Envoy）</div>
+    <div class="leaf">│  ├─ Ambassador：代理外部服务（连接池、重试、发现）</div>
+    <div class="leaf">│  └─ Adapter：标准化输出（统一日志/监控格式）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 共享网络（localhost 互通）</div>
+    <div class="leaf">│  ├─ 同一 IP 地址，不同端口</div>
+    <div class="leaf">│  ├─ 通过 localhost 通信（无需服务发现）</div>
+    <div class="leaf">│  └─ 共享端口空间（注意端口冲突）</div>
+    <div class="branch">├─ <span class="arrow">→</span> Init 容器</div>
+    <div class="leaf">│  ├─ 先于主容器运行</div>
+    <div class="leaf">│  ├─ 顺序执行，每个必须成功退出</div>
+    <div class="leaf">│  ├─ 场景：等待依赖就绪、初始化配置、数据库迁移</div>
+    <div class="leaf">│  └─ 与主容器隔离（可用不同镜像、不同安全上下文）</div>
+    <div class="branch">├─ <span class="arrow">→</span> Pod 生命周期</div>
+    <div class="leaf">│  ├─ Pending：已提交到集群，容器未运行</div>
+    <div class="leaf">│  ├─ Running：至少有一个容器在运行</div>
+    <div class="leaf">│  ├─ Succeeded：所有容器成功退出（restartPolicy: Never）</div>
+    <div class="leaf">│  └─ Failed：至少一个容器非 0 退出</div>
+    <div class="branch">└─ <span class="arrow">→</span> 健康检查探针</div>
+    <div class="leaf">   ├─ liveness：容器是否存活（失败 → 重启）</div>
+    <div class="leaf">   ├─ readiness：是否可接收流量（失败 → 从 Service 摘除）</div>
+    <div class="leaf">   └─ startup：启动探针（慢启动应用，成功后切到 liveness）</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"Pod = 合租的卧室：室友（容器）共享 WiFi（网络）和书架（Volume），Sidecar = 你的室友帮你收快递（辅助功能）"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 解释 Pod 为什么是最小调度单元（共享 Namespace）</li>
+    <li><input type="checkbox"> 说出三种多容器模式（Sidecar/Ambassador/Adapter）及典型场景</li>
+    <li><input type="checkbox"> 解释 Pod 内 localhost 通信的原理（Infra 容器）</li>
+    <li><input type="checkbox"> 说明 Init 容器的特点和使用场景</li>
+    <li><input type="checkbox"> 说出 Pod 的四个生命周期阶段</li>
+    <li><input type="checkbox"> 区分 liveness、readiness、startup 三种探针的作用</li>
+    <li><input type="checkbox"> 能一句话总结："Pod 是最小调度单元，内容器共享网络和存储，Sidecar 是核心理念"</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

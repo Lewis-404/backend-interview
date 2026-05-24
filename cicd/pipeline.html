@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CICD-01 CI/CD 流水线 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="index.html" class="cicd-link active">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">CI/CD</a> &rsaquo; CI/CD 流水线</div>
+  <h1>🔄 CI/CD 流水线</h1>
+  <div class="meta">
+    <span>编号 CICD-01</span>
+    <span>分类：DevOps</span>
+    <span>难度：⭐⭐⭐⭐</span>
+    <span>频率：必问</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">CI/CD 流水线：代码提交 → 自动编译 → 单元测试 → 代码扫描 → 构建镜像 → 部署测试环境 → 集成测试 → 部署生产。CI 确保代码持续集成验证，CD 实现自动/手动部署。工具：GitLab CI / Jenkins / GitHub Actions。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「汽车生产线」看懂 CI/CD 全部流程</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🚗</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：代码提交 = 零件进厂</strong><br><span style="color:var(--text-secondary)">程序员每次 git push，就像汽车零件进入流水线。不再是手工搬运，而是自动化传送带。每个零件（每次提交）都会经过完整的质检流程。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">🔧</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🔍</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：CI 持续集成 = 每个零件立刻质检</strong><br><span style="color:var(--text-secondary)">零件一进厂（代码提交），马上经过<strong style="color:#fbbf24">三道质检</strong>：①编译（零件成型）→ ②单元测试（尺寸测量）→ ③代码扫描（探伤检测）。任何一道不合格，流水线停、红灯亮、通知车间主任（打回重做）。反馈从"几周后"变成"几分钟后"。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">📦</div>
+    <div>
+      <strong style="color:var(--accent)">场景3：镜像构建 = 零件打包</strong><br><span style="color:var(--text-secondary)">质检通过的零件，自动打包成标准箱（Docker 镜像），贴上标签（git-commit-sha 版本号），送进仓库（Harbor 镜像仓库）。标准箱的好处：不管运到测试车间还是生产车间，开箱都一样——消灭"在我机器上能跑"。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">🚛</div>
+    <div>
+      <strong style="color:#34d399">场景4：CD 持续部署 = 质检通过自动装车</strong><br><span style="color:var(--text-secondary)">打包好的标准箱，自动运到生产线（测试环境 → 预发布 → 生产），装上真车。如果是全自动流水线（Continuous Deployment），连最后一道质检通过都直接上生产线；如果保留了人工审批（Continuous Delivery），最后一步需要车间主任拍板。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-600">
+    <div class="scene-icon">🔄</div>
+    <div>
+      <strong style="color:#a78bfa">场景5：蓝绿部署 = 两条产线切换</strong><br><span style="color:var(--text-secondary)">两条一模一样的生产线——蓝线在生产，绿线空闲。新版零件先在绿线上组装测试，全部就绪后一键切换：绿线变生产、蓝线变备用。出问题了再一键切回去。比"边生产边换零件"（滚动更新）更保险，但需要双倍资源。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🚗</span>
+    <div class="metaphor-title">代码提交</div>
+    <div class="metaphor-desc">零件进厂
+触发自动化流水线</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">🔍</span>
+    <div class="metaphor-title">CI质检</div>
+    <div class="metaphor-desc">编译+测试+扫描
+不合格立刻打回</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">📦</span>
+    <div class="metaphor-title">镜像打包</div>
+    <div class="metaphor-desc">标准箱贴标签
+Harbor仓库存储</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🚛</span>
+    <div class="metaphor-title">CD部署</div>
+    <div class="metaphor-desc">自动装车
+滚动更新/蓝绿/金丝雀</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>CI/CD 是持续集成（Continuous Integration）和持续交付/部署（Continuous Delivery/Deployment）的缩写。CI 指频繁（每天多次）将代码合并到主干并自动构建测试；CD 指将通过测试的代码自动或手动部署到各个环境。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>传统开发中"集成地狱"：各分支开发几周后合并，冲突遍地、bug 堆积。CI/CD 让每次提交都经过自动化验证（编译+测试+扫描），问题在几分钟内发现而非几周后。部署从"胆战心惊的手工操作"变成"点按钮或自动触发"。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>解决三大痛点：①集成风险——长期分支合并冲突和回归 bug；②部署效率——手动部署耗时、易出错、不可重复；③反馈延迟——从写代码到发现问题的周期太长。CI/CD 将反馈循环从"周"缩短到"分钟"。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>Pipeline as Code：用 YAML 文件定义流水线（.gitlab-ci.yml / Jenkinsfile / .github/workflows/*.yml）。典型阶段：Build（编译）→ Test（单元+集成）→ Scan（SAST/镜像扫描）→ Package（构建镜像推送到 Harbor）→ Deploy（Helm/kubectl 部署到 K8s）→ Verify（健康检查）。每个阶段成功才进入下一阶段。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>①流水线配置复杂，维护成本高（依赖链、环境变量、密钥管理）；②慢——全流程跑一遍可能 20-30 分钟（优化不力时更长）；③测试覆盖不足时 CI 给虚假安全感；④CD 部署失败需要可靠的回滚机制；⑤多环境管理（dev/staging/prod）的配置漂移问题。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>①流水线模板化——抽取公共 stage 复用（GitLab CI include / GitHub Actions reusable workflow）；②增量构建+缓存（Docker layer cache、Go build cache）；③测试金字塔——单元 70% + 集成 20% + E2E 10%；④部署策略：滚动更新（K8s）或蓝绿部署 + 自动回滚；⑤用 GitOps（ArgoCD/Flux）实现声明式部署和环境一致性。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>Go 项目典型 GitLab CI 流水线：<code>commit → go build → go test -race → golangci-lint → docker build + push → kubectl set image</code>。用 GitLab 环境变量管理不同环境的 K8s kubeconfig，配合 Helm Chart 管理部署参数。生产环境增加手动审批门（GitLab Manual Job 或 Approval Rule）。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"CI/CD 流水线就是代码从提交到上线的自动化高速公路。六大阶段：①代码提交触发 → ②自动编译 → ③跑单元测试+lint → ④代码安全扫描 → ⑤构建 Docker 镜像推送到 Harbor → ⑥部署到 K8s。CI 保证每次提交的质量，CD 保证快速可靠部署。工具三大主流：GitLab CI（一体化）、GitHub Actions（生态好）、Jenkins（老牌灵活）。关键是 Pipeline as Code——用 YAML 定义流程，可版本控制、可复用。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"CI 就是自动部署"（CI 是持续集成，聚焦构建+测试，部署是 CD）</li>
+        <li>"CD 一定是自动部署"（CD 分 Continuous Delivery 手动审批 和 Continuous Deployment 全自动）</li>
+        <li>"流水线就是几个脚本串起来"（没有提 Pipeline as Code 和阶段化设计）</li>
+        <li>"用 Jenkins 就行"（没说 Jenkins 的劣势：界面老、插件管理复杂）</li>
+        <li>"部署到生产不需要回滚"（部署必须有回滚策略，K8s rollout undo）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"CI = 持续集成（频繁合并+自动构建测试），CD = 持续交付/部署（自动部署到各环境）"</li>
+        <li>"Continuous Delivery 需要手动审批才进生产，Continuous Deployment 全自动到生产"</li>
+        <li>"Pipeline as Code：用 YAML 定义，可版本控制、可复用、可审计"</li>
+        <li>"GitLab CI 一体化最省心，GitHub Actions 生态最好，Jenkins 灵活但要养"</li>
+        <li>"K8s rollout undo、Helm rollback、蓝绿部署切换都是回滚手段"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">🔄 CI/CD</div>
+    <div class="branch">├─ <span class="arrow">→</span> CI 持续集成</div>
+    <div class="leaf">│  ├─ 提交 → 构建 → 测试（反馈循环分钟级）</div>
+    <div class="leaf">│  ├─ 关键实践：频繁提交、trunk-based development</div>
+    <div class="leaf">│  └─ 质量门：编译通过 + 测试绿 + lint 清零</div>
+    <div class="branch">├─ <span class="arrow">→</span> CD 持续交付/部署</div>
+    <div class="leaf">│  ├─ Continuous Delivery：自动部署到非生产，生产需手动审批</div>
+    <div class="leaf">│  └─ Continuous Deployment：全自动到生产（需极强测试覆盖+监控）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 流水线阶段</div>
+    <div class="leaf">│  ├─ 编译：go build / mvn package</div>
+    <div class="leaf">│  ├─ 测试：单元测试 + 集成测试 + E2E</div>
+    <div class="leaf">│  ├─ 扫描：SAST（代码安全）+ 镜像漏洞扫描（Trivy）</div>
+    <div class="leaf">│  ├─ 镜像：docker build + push to Harbor/ACR</div>
+    <div class="leaf">│  ├─ 部署：kubectl apply / Helm upgrade</div>
+    <div class="leaf">│  └─ 验证：健康检查 + 冒烟测试</div>
+    <div class="branch">├─ <span class="arrow">→</span> GitLab CI</div>
+    <div class="leaf">│  ├─ .gitlab-ci.yml 定义 Pipeline</div>
+    <div class="leaf">│  ├─ stages：定义阶段顺序</div>
+    <div class="leaf">│  ├─ include：引用外部模板（复用）</div>
+    <div class="leaf">│  ├─ artifacts：阶段间传递产物</div>
+    <div class="leaf">│  └─ Manual Job：手动审批门</div>
+    <div class="branch">├─ <span class="arrow">→</span> 镜像仓库</div>
+    <div class="leaf">│  ├─ Harbor：企业级私有仓库（漏洞扫描 + RBAC + 镜像复制）</div>
+    <div class="leaf">│  ├─ Docker Hub（公共）/ ACR / ECR（云厂商）</div>
+    <div class="leaf">│  └─ 镜像标签策略：git-commit-sha（不可变）vs latest（易变）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 部署策略对比</div>
+    <div class="leaf">│  ├─ 滚动更新：逐步替换（K8s RollingUpdate）</div>
+    <div class="leaf">│  ├─ 蓝绿部署：新旧两套环境，一次切流量</div>
+    <div class="leaf">│  ├─ 金丝雀发布：少量流量验证后全量</div>
+    <div class="leaf">│  └─ A/B 测试：基于用户属性分流</div>
+    <div class="branch">└─ <span class="arrow">→</span> 回滚策略</div>
+    <div class="leaf">   ├─ K8s：kubectl rollout undo deploy/xxx</div>
+    <div class="leaf">   ├─ Helm：helm rollback release revision</div>
+    <div class="leaf">   ├─ 蓝绿：直接切回旧环境</div>
+    <div class="leaf">   └─ 镜像必须保留旧版本（Harbor 标签管理）</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"CI/CD = 汽车生产线：代码提交 = 零件进厂，CI = 每个零件立刻质检，CD = 质检通过自动装车；不合格的零件（测试失败）打回重做"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 区分 CI（持续集成）和 CD（持续交付 vs 持续部署）的概念差异</li>
+    <li><input type="checkbox"> 说出流水线的典型 6 个阶段（编译→测试→扫描→镜像→部署→验证）</li>
+    <li><input type="checkbox"> 解释 Pipeline as Code 的优势和实现方式</li>
+    <li><input type="checkbox"> 对比 GitLab CI / Jenkins / GitHub Actions 的优缺点</li>
+    <li><input type="checkbox"> 说出至少 3 种部署策略（滚动/蓝绿/金丝雀）及适用场景</li>
+    <li><input type="checkbox"> 说明回滚策略的多种手段（kubectl undo / Helm rollback / 蓝绿切换）</li>
+    <li><input type="checkbox"> 能一句话总结："CI = 提交即验证，CD = 验证通过即部署，反馈循环从周到分钟"</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

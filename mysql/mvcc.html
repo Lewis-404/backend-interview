@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MVCC多版本并发控制 — MySQL面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="index.html" class="mysql-link active">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb">
+    <a href="../index.html">首页</a> &raquo;
+    <a href="index.html">MySQL</a> &raquo;
+    <span>#02</span>
+  </div>
+  <h1>MVCC多版本并发控制</h1>
+  <span class="q-number">TOP 02 ⭐⭐⭐⭐⭐</span>
+</header>
+
+<div class="summary-box anim-scale">
+  <p class="big-conclusion">MVCC通过Undo Log保留数据历史版本，每个事务读取快照(ReadView)，实现读不阻塞写、写不阻塞读；RC每次读生成新ReadView，RR事务内复用同一ReadView</p>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — Git 版本管理</div>
+  <div class="story-title">多人同时改代码却不互相干扰 — 这就是 Git，也是 MVCC</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">💾</div>
+    <div><strong style="color:var(--accent)">场景：每次 UPDATE = git commit</strong><br><span style="color:var(--text-secondary)">你改一行代码就commit一次——MySQL每UPDATE一行就产生一个新版本。不像Word那样覆盖保存，而是像Git一样保留完整历史</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🔖</div>
+    <div><strong style="color:var(--accent)">场景：RR 隔离级别 = git checkout 固定 commit</strong><br><span style="color:var(--text-secondary)">事务开始时"checkout"到某个commit，全程只看这个快照。别人后来提交的代码你看不到——这就是可重复读：整个事务看到同一份数据</span></div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🔄</div>
+    <div><strong style="color:var(--accent)">场景：RC 隔离级别 = 每次都 git pull</strong><br><span style="color:var(--text-secondary)">每次读数据都先拉最新——别人刚提交的你能看到。这次读到3条，下次5条——因为别人在你读的时候又提交了2条</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-600">
+    <div class="scene-icon">📜</div>
+    <div><strong style="color:var(--accent)">场景：Undo Log = git log 历史记录</strong><br><span style="color:var(--text-secondary)">git log记录每次commit的变更——Undo Log记录每次修改前的旧值。回滚就像git revert：拿出历史版本还原</span></div>
+  </div>
+</section>
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100"><span class="metaphor-emoji">📜</span><div class="metaphor-title">Undo Log = git log</div><div class="metaphor-desc">每次修改产生一条历史，串联成版本链</div></div>
+  <div class="metaphor-card anim-fade-up delay-200"><span class="metaphor-emoji">👁️</span><div class="metaphor-title">ReadView = 当前 checkout</div><div class="metaphor-desc">事务看到的世界取决于checkout到哪个点</div></div>
+  <div class="metaphor-card anim-fade-up delay-300"><span class="metaphor-emoji">#️⃣</span><div class="metaphor-title">trx_id = commit hash</div><div class="metaphor-desc">唯一标识每次修改，判断可见性全靠它</div></div>
+  <div class="metaphor-card anim-fade-up delay-400"><span class="metaphor-emoji">🔀</span><div class="metaphor-title">快照读 = 看commit日志</div><div class="metaphor-desc">不干扰别人，只读自己版本的代码</div></div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step"><h4>Step 1 — 是什么</h4><p>MVCC(Multi-Version Concurrency Control)是一种并发控制机制，通过维护数据的多个版本来实现事务隔离，让读操作不加锁也能读到一致数据</p></div>
+    <div class="step"><h4>Step 2 — 为什么</h4><p>传统锁机制下读-写互相阻塞，高并发场景吞吐量急剧下降。MVCC让读写互不阻塞，大幅提升并发性能</p></div>
+    <div class="step"><h4>Step 3 — 解决的核心问题</h4><p>解决"读-写冲突"——一个事务读取时另一个事务修改同一条数据，不用加锁也能保证读到一致性视图</p></div>
+    <div class="step"><h4>Step 4 — 核心原理</h4><p>每行记录有隐藏列DB_TRX_ID(最近修改事务ID)和DB_ROLL_PTR(指向Undo Log的回滚指针)。事务开始时创建ReadView(活跃事务列表)，读时沿着版本链找到对当前ReadView可见的版本</p></div>
+    <div class="step"><h4>Step 5 — 缺点/局限</h4><p>Undo Log占用空间且不能随便清理（长事务导致Undo堆积）；RR下可能出现"快照太旧"读到过期数据；不能完全替代锁（写-写冲突仍需锁）</p></div>
+    <div class="step"><h4>Step 6 — 如何解决</h4><p>避免长事务、监控Undo Log大小、对于需要最新数据的场景用SELECT ... FOR UPDATE（当前读）</p></div>
+    <div class="step"><h4>Step 7 — 实际落地</h4><p>RR隔离级别下快照读默认使用MVCC；当前读(SELECT FOR UPDATE/UPDATE/DELETE)走锁机制。核心参数：innodb_undo_tablespaces、innodb_max_undo_log_size</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">MVCC让MySQL实现"读写不互斥"。每条记录有隐藏的事务ID和回滚指针，修改时不是原地更新而是通过Undo Log保存旧版本，形成版本链。每个事务开始时拍一张"快照"(ReadView)，记录当时活跃的事务ID列表。读数据时沿着版本链找到第一个对当前ReadView可见的版本——这就是快照读。RC和RR的区别在于：RC每次SELECT都生成新ReadView(能看到已提交的最新版本)，RR只在事务开始时生成一次(整个事务看到同一快照)。</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before"><h4>❌ 错误表达</h4>
+      <ul>
+        <li>"MVCC就是不加锁" — 错误，写-写冲突仍需要行锁</li>
+        <li>"MVCC是MySQL特有的" — PostgreSQL、Oracle等也实现了MVCC</li>
+        <li>"ReadView就是事务开始时间戳" — ReadView是活跃事务ID数组，不是时间戳</li>
+        <li>"RR下MVCC能解决所有并发问题" — 不能解决写偏斜(Write Skew)</li>
+      </ul></div>
+    <div class="col after"><h4>✅ 正确表达</h4>
+      <ul>
+        <li>"MVCC的核心是<strong>快照读</strong>——每个事务在某一时刻获得数据库的一致性视图"</li>
+        <li>"版本链通过<strong>DB_TRX_ID + DB_ROLL_PTR</strong>两个隐藏列连接Undo Log中的历史版本"</li>
+        <li>"RC和RR的区别本质是<strong>ReadView生成策略</strong>不同：RC每次读新建，RR事务级复用"</li>
+        <li>"MVCC解决读-写冲突，<strong>锁解决写-写冲突</strong>，两者配合才是完整方案"</li>
+      </ul></div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">MVCC 核心原理</div>
+    <div class="branch">├─ <span class="arrow">→</span> 为什么需要MVCC？</div>
+    <div class="leaf">│  └─ 读不加锁也能读一致性数据。没有MVCC时要么用锁(读写互斥→低并发)，要么脏读（读到未提交数据）</div>
+    <div class="branch">├─ <span class="arrow">→</span> Undo Log版本链怎么工作？</div>
+    <div class="leaf">│  └─ 每次UPDATE不会覆盖原数据，而是写新版本到Undo Log，原数据roll_ptr指向旧版本，形成单向链表</div>
+    <div class="branch">├─ <span class="arrow">→</span> 隐藏列 trx_id + roll_ptr 做什么？</div>
+    <div class="leaf">│  └─ trx_id=最后修改此行的事务ID，roll_ptr=指向Undo Log旧版本的指针。还有DB_ROW_ID(无主键时的隐藏主键)</div>
+    <div class="branch">├─ <span class="arrow">→</span> ReadView可见性判断规则？</div>
+    <div class="leaf">│  └─ ①trx_id&lt;最小活跃事务ID→可见 ②trx_id&gt;=最大活跃事务ID→不可见 ③在活跃列表中→不可见(未提交) ④不在且<最大→可见(已提交)</div>
+    <div class="branch">├─ <span class="arrow">→</span> RC vs RR 本质区别？</div>
+    <div class="leaf">│  └─ RC:每次快照读生成新ReadView→能看到别的事务已提交的修改。RR:第一次快照读生成ReadView后复用→整个事务看到同一快照</div>
+    <div class="branch">├─ <span class="arrow">→</span> 当前读 vs 快照读？</div>
+    <div class="leaf">│  └─ 快照读=普通SELECT(MVCC)；当前读=SELECT FOR UPDATE/UPDATE/DELETE/INSERT，读最新版本+加锁，不走MVCC</div>
+    <div class="branch">└─ <span class="arrow">→</span> MVCC和锁怎么配合？</div>
+    <div class="leaf">   └─ 读→MVCC快照读（不加锁）；写→当前读+行锁。两者互补：MVCC处理读-写并发，锁处理写-写并发</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">MVCC像<strong>Git版本管理</strong>：每次修改产生一个commit（版本），读操作看当时的快照而不是最新代码；<strong>RR = 一个事务的git checkout固定commit</strong>，<strong>RC = 每次读都git pull</strong>看看有没有新提交的</div>
+  <div class="hook-text" style="margin-top:0.8rem;font-size:0.9rem;opacity:0.85">3个 — 隐藏列(trx_id/roll_ptr/row_id) | RC — 每次SELECT新建ReadView | RR — 事务级复用ReadView</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+<li><input type="checkbox"> 能画出Undo Log版本链的示意图（trx_id + roll_ptr串联）</li>
+    <li><input type="checkbox"> 能口述ReadView的4条可见性判断规则</li>
+    <li><input type="checkbox"> 能解释RC下同一事务两次SELECT可能读到不同数据的原因</li>
+    <li><input type="checkbox"> 能区分快照读和当前读的使用场景</li>
+    <li><input type="checkbox"> 能说明长事务为什么会导致Undo Log膨胀</li>
+    <li><input type="checkbox"> 能对比MVCC和纯锁机制在高并发下的性能差异</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

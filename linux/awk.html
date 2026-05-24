@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>awk 文本处理 — Linux 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link active">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+  <div class="interview-header">
+    <div class="breadcrumb"><a href="../linux/index.html">Linux</a> / awk 文本处理</div>
+    <h1>awk — 文本数据处理语言</h1>
+    <div class="meta"><span>编号：LINUX-04</span><span>难度：⭐⭐⭐</span><span>频率：🔥🔥🔥🔥</span></div>
+  </div>
+
+  <div class="summary-box anim-scale">
+    <div class="label">💡 一句话结论</div>
+    <div class="one-liner">awk 是文本数据处理语言，按行读取并按列（$1/$2/$NF）处理，支持条件过滤、计算、格式化输出。经典用法：awk '{print $1,$3}'、awk '$3>100'、awk '{sum+=$2}END{print sum}'。</div>
+  </div>
+
+  <!-- ====== 🎬 生活类比故事 ====== -->
+  <section class="story-section">
+    <div class="story-label">🎬 生活类比 — awk = Excel 命令行版</div>
+    <div class="story-title">用「Excel 表格」看懂 awk 数据处理</div>
+
+    <div class="story-scene anim-fade-left">
+      <div class="scene-icon">📊</div>
+      <div>
+        <strong style="color:var(--accent)">场景1：$1 = A列，$2 = B列</strong><br>
+        <span style="color:var(--text-secondary)">你打开一个 Excel 表格。<strong style="color:#fbbf24">$0 是整行（一整行数据）</strong>、<strong style="color:#fbbf24">$1 是 A 列、$2 是 B 列…$NF 是最后一列</strong>。-F 就是指定分隔符——默认是空格/Tab，-F: 就是用冒号切列（像 Excel 的"分列"功能）。</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-right delay-200">
+      <div class="scene-icon">🔢</div>
+      <div>
+        <strong style="color:var(--accent)">场景2：条件过滤 = 筛选，计算 = SUM</strong><br>
+        <span style="color:var(--text-secondary)"><strong style="color:#fbbf24">awk '$3>100'</strong> = Excel 里对第三列筛选"大于 100"。<strong style="color:#fbbf24">awk '{sum+=$2}END{print sum}'</strong> = 把 B 列全部加起来，最后输出总和——这就是 Excel 的 SUM。awk '{arr[$1]++}END{for(k in arr) print k,arr[k]}' = Excel 的数据透视表！</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-left delay-400">
+      <div class="scene-icon">📝</div>
+      <div>
+        <strong style="color:var(--accent)">场景3：BEGIN = 页眉，END = 页脚</strong><br>
+        <span style="color:var(--text-secondary)"><strong style="color:#fbbf24">BEGIN { print "姓名,成绩" }</strong> = 打印表头（第一行前执行）。<strong style="color:#fbbf24">END { print "平均:", total/NR }</strong> = 打印汇总行（所有数据处理完后执行）。NR = 当前行号（第几行），NF = 当前行列数（一共几列）。</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <span class="metaphor-emoji">📊</span>
+      <div class="metaphor-title">$1 $2 $NF</div>
+      <div class="metaphor-desc">A列 B列 最后一列<br>-F 指定分隔符分列</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <span class="metaphor-emoji">🔢</span>
+      <div class="metaphor-title">条件 + 计算</div>
+      <div class="metaphor-desc">筛选行 + SUM求和<br>一行搞定 Excel 公式</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <span class="metaphor-emoji">📝</span>
+      <div class="metaphor-title">BEGIN / END</div>
+      <div class="metaphor-desc">页眉表头 / 页脚汇总<br>先打印标题 后打印合计</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-400">
+      <span class="metaphor-emoji">📋</span>
+      <div class="metaphor-title">NR / NF</div>
+      <div class="metaphor-desc">第几行 / 共几列<br>内置变量自动计数</div>
+    </div>
+  </div>
+
+  <div class="section highlight anim-fade-up">
+    <h3><span class="emoji">📋</span> 7步答题模板</h3>
+    <div class="answer-template">
+      <div class="step"><h4>第一步：一句话定义</h4><p>awk 是 Linux 三剑客中最强大的文本处理工具，它是一个完整的文本数据处理语言。按行读取，默认按空格/Tab 分割列，支持计算、过滤、格式化输出。</p></div>
+      <div class="step"><h4>第二步：基本结构</h4><p>awk 'pattern { action }' file。pattern 是条件（可选），action 是处理动作。不写 pattern 则每行都处理；不写 action 则打印匹配行（默认 {print}）。</p></div>
+      <div class="step"><h4>第三步：列操作（核心）</h4><p>$0 = 整行、$1 = 第一列、$2 = 第二列、$NF = 最后一列、$(NF-1) = 倒数第二列。可以指定分隔符：-F: 用冒号分割（如 /etc/passwd）、-F"," 用逗号分割（CSV）。</p></div>
+      <div class="step"><h4>第四步：内置变量</h4><p>NR（行号，从 1 开始）、NF（当前行的列数）、FS（输入分隔符，默认空格）、OFS（输出分隔符，默认空格）、RS（行分隔符，默认换行）、ORS（输出行分隔符）。awk 'NR==1 || NR==10' 打印第1行和第10行。</p></div>
+      <div class="step"><h4>第五步：BEGIN 和 END 块</h4><p>BEGIN 块在处理第一行之前执行（初始化变量、打印表头）；END 块在处理完所有行之后执行（打印汇总结果）。awk 'BEGIN{print "开始"} {sum+=$2} END{print "合计:",sum}'。</p></div>
+      <div class="step"><h4>第六步：条件过滤与计算</h4><p>条件过滤：awk '$3 > 100' file、awk '$1 ~ /error/' file（正则匹配）。统计计算：awk '{sum+=$2; count++} END{print sum/count}'（求第二列平均值）。awk '{arr[$1]++} END{for(k in arr) print k,arr[k]}'（分组计数）。</p></div>
+      <div class="step"><h4>第七步：实战场景</h4><p>日志分析：awk '{print $1}' access.log | sort | uniq -c | sort -nr（统计访问 IP 排行）。列提取：ps aux | awk '$3>50 {print $2,$11}'（CPU>50% 的进程）。格式转换：awk '{print $2","$3}' 转 CSV。</p></div>
+    </div>
+  </div>
+
+  <div class="timer-box">
+    <div class="timer-icon">⏱️</div>
+    <div>
+      <div class="timer-label">60秒面试表达</div>
+      <div class="timer-text">"awk 是按列处理文本数据的利器。核心是 $1/$2 取列、NR/NF 内置变量、BEGIN/END 做首尾处理。我日常用它做日志分析——统计接口响应时间、按 IP 分组计数、提取特定列。比 grep 强在能做计算和聚合，比写 Python 脚本快得多，一行搞定。"</div>
+    </div>
+  </div>
+
+  <div class="section warning-zone">
+    <h3><span class="emoji">⚠️</span> 面试常见错误 vs 正确回答</h3>
+    <div class="compare">
+      <div class="col before">
+        <h4>❌ 错误回答</h4>
+        <p>"awk 只能打印列"<br><br>"awk 和 cut 差不多"<br><br>"awk 只能处理格式化文本"</p>
+      </div>
+      <div class="col after">
+        <h4>✅ 正确回答</h4>
+        <p>"awk 有完整的条件判断、循环、变量、数组，是一种编程语言"<br><br>"cut 只能简单切列，awk 能做计算/过滤/聚合/格式化"<br><br>"awk 可以处理任意分隔符的文本（-F），也能做模式匹配和正则"</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim-fade-up">
+    <h3><span class="emoji">🌲</span> 追问树</h3>
+    <div class="tree">
+      <span class="node">awk</span><br>
+      <span class="branch">├─ 基本结构是什么？</span><br>
+      <span class="leaf">→ awk 'pattern{action}' file，pattern 是条件，action 是动作</span><br>
+      <span class="branch">├─ 列怎么操作？</span><br>
+      <span class="leaf">→ $0=整行 / $1第1列 / $NF最后一列，-F 指定分隔符</span><br>
+      <span class="branch">├─ 有哪些内置变量？</span><br>
+      <span class="leaf">→ NR 行号 / NF 列数 / FS 输入分隔符 / OFS 输出分隔符</span><br>
+      <span class="branch">├─ BEGIN 和 END 怎么用？</span><br>
+      <span class="leaf">→ BEGIN{}处理前执行(表头/初始化)，END{}处理后执行(汇总)</span><br>
+      <span class="branch">├─ 怎么做条件过滤？</span><br>
+      <span class="leaf">→ awk '$3>100' / awk '$1~/pattern/'（正则）</span><br>
+      <span class="branch">├─ 怎么做统计计算？</span><br>
+      <span class="leaf">→ awk '{sum+=$2}END{print sum}' / awk '{arr[$1]++}END{...}'</span><br>
+      <span class="branch">└─ 实战怎么用？</span><br>
+      <span class="leaf">→ 日志分析/列提取/聚合统计/格式转换</span>
+    </div>
+  </div>
+
+  <div class="memory-hook">
+    <div class="hook-label">🧠 记忆钩子</div>
+    <div class="hook-text">"awk = Excel 命令行版：$1 = A列、$2 = B列，可以筛选（条件）、计算（累加）、透视（BEGIN/END）。NR = 第几行，NF = 一共几列。"</div>
+  </div>
+
+  <div class="section success-zone">
+    <h3><span class="emoji">✅</span> 自检清单</h3>
+    <ul class="check-list">
+      <li><input type="checkbox"> awk '$3>100' 和 awk '{if($3>100) print}' 有什么区别？</li>
+      <li><input type="checkbox"> NR 和 FNR 的区别？（多文件时）</li>
+      <li><input type="checkbox"> 怎么用 awk 做分组统计（类似 SQL 的 GROUP BY + COUNT）？</li>
+      <li><input type="checkbox"> -F 分隔符是正则吗？能用多字符吗？</li>
+      <li><input type="checkbox"> awk、sed、grep 各自什么时候用？</li>
+      <li><input type="checkbox"> 面试官丢一个 access.log 让你统计访问量 Top10 IP，能脱口而出吗？</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

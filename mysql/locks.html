@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MySQL锁机制全解 — MySQL面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="index.html" class="mysql-link active">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb">
+    <a href="../index.html">首页</a> &raquo;
+    <a href="index.html">MySQL</a> &raquo;
+    <span>#04</span>
+  </div>
+  <h1>MySQL锁机制全解</h1>
+  <span class="q-number">TOP 04 ⭐⭐⭐⭐⭐</span>
+</header>
+
+<div class="summary-box anim-scale">
+  <p class="big-conclusion">InnoDB锁体系：行锁(Record/Gap/Next-Key Lock)+表锁+意向锁；RR下Next-Key Lock（行锁+间隙锁）解决幻读；死锁检测通过wait-for graph超时回滚</p>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 停车场车位管理</div>
+  <div class="story-title">为什么停车场不会有两辆车停同一个车位？</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🅿️</div>
+    <div><strong style="color:var(--accent)">场景：行锁(Record Lock) = 车位锁</strong><br><span style="color:var(--text-secondary)">每个车位一个地锁，只有你降锁才能停——MySQL的行锁只锁你操作的那一行，别人其他行照常访问，互不干扰</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">⛓️</div>
+    <div><strong style="color:var(--accent)">场景：间隙锁(Gap Lock) = 车位间的铁链</strong><br><span style="color:var(--text-secondary)">两个车位之间拉了铁链——虽然中间没车位，但也不能让新人插队停进来！这就是防幻读的本质：不让你INSERT新行进来</span></div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🔐</div>
+    <div><strong style="color:var(--accent)">场景：临键锁(Next-Key Lock) = 车位锁+铁链</strong><br><span style="color:var(--text-secondary)">锁住车位本身+前面的铁链——彻底防御：你不能改我车位上的车，也不能在我前面插队停一辆。RR级别的默认锁机制</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-600">
+    <div class="scene-icon">🚗💥</div>
+    <div><strong style="color:var(--accent)">场景：死锁 = 两车互不相让堵死</strong><br><span style="color:var(--text-secondary)">A车想进B车位，B车想进A车位——两车互不相让→交通瘫痪。MySQL检测到后，交警(死锁检测)拖走代价最小的一辆(回滚事务)</span></div>
+  </div>
+</section>
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100"><span class="metaphor-emoji">🔒</span><div class="metaphor-title">行锁 = 车位锁</div><div class="metaphor-desc">只锁一个位置，别人自由进出其他车位</div></div>
+  <div class="metaphor-card anim-fade-up delay-200"><span class="metaphor-emoji">⛓️</span><div class="metaphor-title">间隙锁 = 铁链</div><div class="metaphor-desc">锁住空位，阻止插队，防幻读全靠它</div></div>
+  <div class="metaphor-card anim-fade-up delay-300"><span class="metaphor-emoji">🔐</span><div class="metaphor-title">临键锁 = 锁+链</div><div class="metaphor-desc">双重保护，RR默认策略，彻底防幻读</div></div>
+  <div class="metaphor-card anim-fade-up delay-400"><span class="metaphor-emoji">💀</span><div class="metaphor-title">死锁 = 两车卡死</div><div class="metaphor-desc">互等对方释放→交警拖走代价最小的</div></div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step"><h4>Step 1 — 是什么</h4><p>锁是多用户并发访问数据库时保证数据一致性的机制。InnoDB支持行级锁、间隙锁、临键锁、意向锁、自增锁等</p></div>
+    <div class="step"><h4>Step 2 — 为什么</h4><p>没有锁，并发写同一条数据会导致数据错乱（丢失更新）。锁通过互斥访问保证并发安全性</p></div>
+    <div class="step"><h4>Step 3 — 解决的核心问题</h4><p>写-写冲突（丢失更新）；RR下幻读（间隙锁阻止INSERT）；元数据修改与DML冲突（元数据锁）</p></div>
+    <div class="step"><h4>Step 4 — 核心原理</h4><p>行锁在索引记录上加锁；间隙锁锁索引记录之间的间隙（不锁记录本身）；Next-Key Lock=行锁+前面间隙锁（左开右闭区间）</p></div>
+    <div class="step"><h4>Step 5 — 缺点/局限</h4><p>锁冲突导致等待和超时；间隙锁降低并发插入性能；死锁需要检测和回滚；锁太多可能导致锁升级到表锁</p></div>
+    <div class="step"><h4>Step 6 — 如何解决</h4><p>使用合适索引避免锁全表；控制事务大小和时间；死锁重试机制；乐观锁替代悲观锁（读多写少场景）</p></div>
+    <div class="step"><h4>Step 7 — 实际落地</h4><p>常用参数：innodb_lock_wait_timeout=50s（锁等待超时）；死锁检测：innodb_deadlock_detect=ON；监控：SHOW ENGINE INNODB STATUS\G</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">InnoDB的锁分三层。最底层是行锁：Record Lock锁住索引记录本身，Gap Lock锁住索引记录之间的间隙（比如id=5和id=10之间），Next-Key Lock=Record+Gap（左开右闭区间）。RR默认用Next-Key Lock防幻读。中间层是意向锁(IS/IX)：行锁加之前先在表级标记，方便其他事务快速判断表上是否有行锁。上层是元数据锁(MDL)和自增锁：MDL保护表结构不被并发修改，自增锁保证AUTO_INCREMENT唯一性。死锁检测通过wait-for graph——如果发现环就回滚代价最小的事务。</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before"><h4>❌ 错误表达</h4>
+      <ul>
+        <li>"行锁就是锁住一行" — 行锁加在索引上，没索引会锁全表</li>
+        <li>"Gap Lock锁的是记录" — 间隙锁不锁任何记录，锁的是索引间隙</li>
+        <li>"死锁会自动超时解决" — 死锁检测是主动发现循环等待并回滚，不是被动等超时</li>
+        <li>"乐观锁就是不加锁" — 乐观锁是应用层的版本号控制，不是数据库不锁</li>
+      </ul></div>
+    <div class="col after"><h4>✅ 正确表达</h4>
+      <ul>
+        <li>"InnoDB行锁加在<strong>索引</strong>上，不是记录本身。没有索引的UPDATE会锁全表，这是隐式锁升级"</li>
+        <li>"<strong>Next-Key Lock = Record Lock + Gap Lock</strong>，锁定的是(上一个索引值, 当前索引值]的左开右闭区间"</li>
+        <li>"<strong>意向锁</strong>是表级锁，用来和表锁协调：行锁前先加意向锁，表锁只需检查意向锁就知道表上有无行锁"</li>
+        <li>"死锁处理分两条线：<strong>检测</strong>(wait-for graph主动发现环→回滚)和<strong>超时</strong>(innodb_lock_wait_timeout→回滚)"</li>
+      </ul></div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">MySQL锁体系</div>
+    <div class="branch">├─ <span class="arrow">→</span> 行锁分哪三种？</div>
+    <div class="leaf">│  └─ Record Lock：锁索引记录；Gap Lock：锁索引间隙(开区间)；Next-Key Lock：Record+Gap(左开右闭)。RC只用Record Lock，RR默认Next-Key</div>
+    <div class="branch">├─ <span class="arrow">→</span> Next-Key Lock如何防幻读？</div>
+    <div class="leaf">│  └─ WHERE id>5 FOR UPDATE→锁住(5,∞)的间隙，其他事务无法INSERT id=6/7/8...。但快照读(SELECT)不触发行锁，幻读仍可能发生</div>
+    <div class="branch">├─ <span class="arrow">→</span> 意向锁(IS/IX)干什么？</div>
+    <div class="leaf">│  └─ 行锁和表锁的"通告机制"。加行锁前先加IX意向锁，表锁加锁时只需检查意向锁是否冲突，不必遍历所有行锁</div>
+    <div class="branch">├─ <span class="arrow">→</span> 元数据锁(MDL)是什么？</div>
+    <div class="leaf">│  └─ MySQL 5.5引入。DML自动加MDL读锁，DDL自动加MDL写锁。防止SELECT时表被ALTER/DROP。常见问题：DDL等DML释放MDL导致阻塞</div>
+    <div class="branch">├─ <span class="arrow">→</span> 死锁怎么发现和处理？</div>
+    <div class="leaf">│  └─ wait-for graph：事务T1等T2→T2等T1→成环=死锁。检测到环后回滚undo量最小的事务(undo log越小代价越低)。超时是兜底(默认50s)</div>
+    <div class="branch">├─ <span class="arrow">→</span> 乐观锁 vs 悲观锁怎么选？</div>
+    <div class="leaf">│  └─ 悲观锁(SELECT FOR UPDATE)：冲突率高时用，保证不出错。乐观锁(version字段+CAS)：冲突率低时用，性能好但需要重试</div>
+    <div class="branch">└─ <span class="arrow">→</span> 为什么没索引的UPDATE会锁全表？</div>
+    <div class="leaf">   └─ 行锁加在索引上。WHERE列无索引→全表扫描→每一行都要判断→所有行都被X锁锁住。所以DBA强调WHERE列必须有索引</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text"><strong>行锁=停车场车位锁</strong>（只锁自己的车位），<strong>间隙锁=车位间的铁链</strong>（没车也不能停在这个间隙），<strong>临键锁=车位锁+铁链</strong>——彻底保证不会有车插队（彻底防幻读）</div>
+  <div class="hook-text" style="margin-top:0.8rem;font-size:0.9rem;opacity:0.85">3种 — 行锁：Record/Gap/Next-Key | 2种 — 意向锁：IS(共享)/IX(排他) | RC — 只使用Record Lock | RR — 默认Next-Key Lock</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+<li><input type="checkbox"> 能画出Record/Gap/Next-Key Lock各自的锁定范围（用数轴表示）</li>
+    <li><input type="checkbox"> 能举例说明Next-Key Lock防幻读的具体场景</li>
+    <li><input type="checkbox"> 能解释意向锁为什么需要——表锁和行锁的兼容性判断</li>
+    <li><input type="checkbox"> 能描述死锁检测的wait-for graph原理</li>
+    <li><input type="checkbox"> 能说明没索引的UPDATE为什么锁全表</li>
+    <li><input type="checkbox"> 能对比乐观锁和悲观锁的适用场景和实现方式</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

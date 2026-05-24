@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DO-05 Docker 网络模式 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="index.html" class="docker-link active">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">Docker</a> &rsaquo; Docker 网络模式</div>
+  <h1>🐳 Docker 网络模式</h1>
+  <div class="meta">
+    <span>编号 DO-05</span>
+    <span>分类：网络</span>
+    <span>难度：⭐⭐⭐⭐</span>
+    <span>频率：高频</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">四种网络模式：bridge（默认，容器在隔离网络中通过 NAT 访问外网）、host（与宿主机共享网络，性能好但不隔离）、none（无网络，纯隔离）、overlay（跨主机 Swarm 通信）。容器间通过容器名 DNS 解析通信（同一个自定义 bridge 网络）。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「合租房」看懂 Docker 四种网络模式</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🏠</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：bridge = 合租房各房间独立</strong><br><span style="color:var(--text-secondary)">默认模式。每间房（容器）有自己的门牌号（IP），要出门（访问外网）走公共大门 NAT（docker0 网桥 + iptables MASQUERADE）。<strong style="color:#fbbf24">自定义 bridge</strong> 网络更高级——室友之间可以叫名字（DNS 解析容器名），默认 bridge 不行，只能叫门牌号（IP）。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">🏠</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🛋️</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：host = 睡客厅</strong><br><span style="color:var(--text-secondary)">不用房间了，直接睡客厅沙发——和房东（宿主机）共用所有空间、网络、门牌号。好处是零隔离开销，性能最佳；坏处是你在客厅做的事所有人都看得见（端口冲突、安全风险）。<strong style="color:#fbbf24">-p 端口映射在 host 模式下无效</strong>，因为你就睡在房东的床上。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🚫</div>
+    <div>
+      <strong style="color:#f87171">场景3：none = 禁闭室</strong><br><span style="color:var(--text-secondary)"><strong style="color:#f87171">--network none</strong>——把你关进小黑屋，只有 lo 回环接口，没有任何网络。只能自言自语。适合处理敏感数据的批处理任务，最高级别的网络隔离。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">🌉</div>
+    <div>
+      <strong style="color:#a78bfa">场景4：overlay = 跨楼连通</strong><br><span style="color:var(--text-secondary)"><strong style="color:#a78bfa">Swarm 模式</strong>——不同楼栋（不同宿主机）的租客需要通信？通过 VXLAN 隧道把两个房子的局域网连起来，看起来像在同一个屋里。代价是封装/解封装的性能损耗约 10-15%。替代方案：Calico（纯路由/BGP）、Flannel。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🏠</span>
+    <div class="metaphor-title">bridge</div>
+    <div class="metaphor-desc">合租房各房间独立
+docker0网桥+NAT</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">🛋️</span>
+    <div class="metaphor-title">host</div>
+    <div class="metaphor-desc">睡客厅共享所有
+高性能但不隔离</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">🚫</span>
+    <div class="metaphor-title">none</div>
+    <div class="metaphor-desc">禁闭室无网络
+最高隔离级别</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🌉</span>
+    <div class="metaphor-title">overlay</div>
+    <div class="metaphor-desc">跨楼VXLAN隧道
+Swarm跨主机通信</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>Docker 网络是容器间及容器与外部通信的基础设施。Docker 为每个容器创建独立的网络命名空间（Network Namespace），通过虚拟网卡（veth pair）连接到虚拟网桥（docker0），实现容器间及容器与外部的通信。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>微服务架构中多个容器需要互相通信（如 Web 连接 MySQL、Redis）。需要网络隔离（不让数据库暴露公网）、跨主机通信（Swarm/K8s）、性能优化（host 模式减少 NAT 开销）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>解决"容器间如何互相发现和通信"以及"外部如何访问容器服务"两个核心问题。通过自定义网络和内置 DNS，容器可以通过名称互相调用，无需关心 IP 变化。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>bridge 模式：宿主机上创建 docker0 网桥，每个容器一个 veth pair（一端在容器内 eth0，一端在 docker0），容器通过 NAT（iptables MASQUERADE）访问外网。同一个自定义 bridge 网络的容器可通过名称互相 DNS 解析（内置 DNS Server 127.0.0.11）。host 模式直接复用宿主机网络栈。overlay 模式用 VXLAN 隧道实现跨主机二层互通。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① 默认 bridge 网络不支持 DNS 解析（只有自定义 bridge 支持）；② host 模式端口冲突——容器端口直接占用宿主机端口；③ overlay 有 VXLAN 封装开销，性能损耗约 10-15%；④ none 模式完全没有网络用途很受限；⑤ iptables 规则多了之后性能下降。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① 生产环境用自定义 bridge 网络而非默认 bridge（获得 DNS 解析能力）；② 高性能场景用 host 模式但需注意端口规划；③ 大规模 overlay 网络考虑 Calico/Flannel（纯路由/BGP）替代 Docker Swarm overlay；④ 用 <code>docker network ls/inspect</code> 管理网络。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>典型三容器场景：<code>docker network create app-net</code> → Web、MySQL、Redis 都加入 app-net → Web 代码里用 <code>mysql:3306</code> 和 <code>redis:6379</code> 即可通信（DNS 解析容器名）。端口暴露：<code>-p 8080:80</code> 将容器 80 映射到宿主机 8080，外网通过宿主机 IP:8080 访问。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Docker 四种网络模式：①bridge 默认模式——每个容器独立 IP，通过 NAT 访问外网，通过端口映射让外部访问；②host——和宿主机共享网络栈，性能最好但没有隔离，端口直接冲突；③none——纯隔离，没网络；④overlay——跨主机通信（Swarm 模式用 VXLAN）。关键点：同一个自定义 bridge 网络中的容器可以通过容器名互相 DNS 解析，默认 bridge 网络不支持。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"bridge 和 host 一样"（bridge 有隔离 NAT，host 不隔离共享网络栈）</li>
+        <li>"任何 bridge 网络都能用容器名通信"（默认 bridge 不支持 DNS，自定义 bridge 才支持）</li>
+        <li>"-p 和 --network host 可以一起用"（host 模式下 -p 无效，因为直接共享网络）</li>
+        <li>"overlay 没有性能损耗"（VXLAN 封装/解封装有 10-15% 开销）</li>
+        <li>"容器 IP 是固定的"（重启后 IP 可能变化，应该用容器名/服务名通信）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"bridge 通过 docker0 网桥 + NAT 隔离通信；host 直接共享宿主机网络栈"</li>
+        <li>"自定义 bridge 网络内置 DNS Server（127.0.0.11），支持容器名解析"</li>
+        <li>"host 模式下 -p 参数无效，容器直接监听宿主机端口"</li>
+        <li>"overlay 用 VXLAN 隧道跨主机，性能损耗约 10-15%"</li>
+        <li>"容器间通信应使用容器名/服务名，不依赖 IP"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">🐳 Docker 网络</div>
+    <div class="branch">├─ <span class="arrow">→</span> bridge（默认）</div>
+    <div class="leaf">│  ├─ docker0 网桥 + veth pair（容器内 eth0 ↔ 宿主机 veth）</div>
+    <div class="leaf">│  ├─ NAT（iptables MASQUERADE）访问外网</div>
+    <div class="leaf">│  ├─ 默认 bridge：不支持 DNS，只能用 IP 通信</div>
+    <div class="leaf">│  └─ 自定义 bridge：内置 DNS（127.0.0.11），支持容器名解析</div>
+    <div class="branch">├─ <span class="arrow">→</span> host（共享宿主机）</div>
+    <div class="leaf">│  ├─ 直接复用宿主机网络栈（网卡/IP/端口）</div>
+    <div class="leaf">│  ├─ 性能最优（无 NAT 开销）</div>
+    <div class="leaf">│  ├─ 不隔离：端口冲突、安全风险</div>
+    <div class="leaf">│  └─ -p 参数无效</div>
+    <div class="branch">├─ <span class="arrow">→</span> none（无网络）</div>
+    <div class="leaf">│  ├─ 只有 lo 回环接口</div>
+    <div class="leaf">│  ├─ 最高隔离级别</div>
+    <div class="leaf">│  └─ 场景：处理敏感数据的批量任务</div>
+    <div class="branch">├─ <span class="arrow">→</span> overlay（跨主机 Swarm）</div>
+    <div class="leaf">│  ├─ VXLAN 隧道封装二层帧</div>
+    <div class="leaf">│  ├─ 跨主机容器像在同一个局域网</div>
+    <div class="leaf">│  ├─ 性能损耗约 10-15%</div>
+    <div class="leaf">│  └─ 替代方案：Calico（BGP）、Flannel</div>
+    <div class="branch">├─ <span class="arrow">→</span> 容器间通信</div>
+    <div class="leaf">│  ├─ 同网络：容器名 DNS 解析 → 内网 IP 直连</div>
+    <div class="leaf">│  ├─ 自定义 bridge：内置 DNS Server</div>
+    <div class="leaf">│  └─ 不同网络：需要 docker network connect 加入多个网络</div>
+    <div class="branch">└─ <span class="arrow">→</span> 端口映射（-p host:container）</div>
+    <div class="leaf">   ├─ iptables DNAT 规则转发</div>
+    <div class="leaf">   ├─ -p 8080:80（宿主机 8080 → 容器 80）</div>
+    <div class="leaf">   └─ -P：随机映射 EXPOSE 声明的端口</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"bridge = 合租房（各房间独立但有公共出口）、host = 睡客厅（共享所有）、none = 禁闭室（没网络）、overlay = 跨楼连通"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 说出四种网络模式的名称和核心特点</li>
+    <li><input type="checkbox"> 解释 bridge 模式下的 veth pair + docker0 网桥机制</li>
+    <li><input type="checkbox"> 对比默认 bridge 和自定义 bridge 的关键区别（DNS 支持）</li>
+    <li><input type="checkbox"> 解释 host 模式的优缺点及 -p 无效的原因</li>
+    <li><input type="checkbox"> 说明 overlay 跨主机通信的原理（VXLAN）和性能影响</li>
+    <li><input type="checkbox"> 解释端口映射（-p）的底层原理（iptables DNAT）</li>
+    <li><input type="checkbox"> 能一句话总结："bridge 隔离 NAT，host 共享高性能，overlay 跨主机，容器名 DNS 通信"</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

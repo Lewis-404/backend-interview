@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>消息重复消费与幂等性 — MQ 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link active">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+  <div class="interview-header">
+    <div class="breadcrumb"><a href="../mq/index.html">MQ</a> / 消息重复消费与幂等性</div>
+    <h1>消息重复消费 — 为什么有，怎么解决？</h1>
+    <div class="meta"><span>编号：MQ-01</span><span>难度：⭐⭐⭐</span><span>频率：🔥🔥🔥🔥🔥</span></div>
+  </div>
+
+  <div class="summary-box anim-scale">
+    <div class="label">💡 一句话结论</div>
+    <div class="one-liner">MQ 为保证可靠性（at-least-once 语义）会导致消息重复。解决方案：消费者做幂等处理——唯一消息 ID + Redis SetNX 防重、数据库唯一约束兜底、状态机前置判断。</div>
+  </div>
+
+  <!-- ====== 🎬 生活类比故事 ====== -->
+  <section class="story-section">
+    <div class="story-label">🎬 生活类比 — 重复消费 = 快递送两次</div>
+    <div class="story-title">用「收快递」看懂消息去重</div>
+    <div class="story-scene anim-fade-left">
+      <div class="scene-icon">📦</div>
+      <div>
+        <strong style="color:var(--accent)">场景1：快递员送了两趟同一件货</strong><br>
+        <span style="color:var(--text-secondary)">你在家等快递，快递员按门铃——你签收了。过了一会儿，快递员又来了，还是同一件（网络超时重投、Broker 重发）。你拿起快递单一看：<strong style="color:#fbbf24">单号 XD20240524（消息 ID）</strong>——这本签收册上已经记过了！<strong style="color:#fbbf24">SETNX "XD20240524" = 签到表上写名字</strong>——写上了说明第一次收，写不上说明已经收了，直接说"不收"。</span>
+      </div>
+    </div>
+    <div class="story-scene anim-fade-right delay-200">
+      <div class="scene-icon">📋</div>
+      <div>
+        <strong style="color:var(--accent)">场景2：签收册可能丢 —— 数据库兜底</strong><br>
+        <span style="color:var(--text-secondary)">万一签收册（Redis）被小孩撕了（重启/过期），怎么保证不重复收？<strong style="color:#fbbf24">数据库唯一约束 = 物业的系统里有记录</strong>。INSERT 时发现单号已存在（唯一索引冲突），系统自动拒绝重复录入。<strong style="color:#fbbf24">Redis SETNX 做快速判断 + DB 唯一索引兜底</strong>，双重保险。</span>
+      </div>
+    </div>
+    <div class="story-scene anim-fade-left delay-400">
+      <div class="scene-icon">🔄</div>
+      <div>
+        <strong style="color:var(--accent)">场景3：状态机 = 快递状态追踪</strong><br>
+        <span style="color:var(--text-secondary)">快递有明确状态：<strong style="color:#fbbf24">待签收 → 已签收</strong>。收到快递时先查状态：已经是"已签收"？直接跳过。只有"待签收"才处理。<strong style="color:#fbbf24">UPDATE ... SET status='signed' WHERE id=? AND status='pending'</strong>——这是 CAS（Compare And Swap），防两个人同时签收同一件快递。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 技术映射卡片 ====== -->
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <span class="metaphor-emoji">📦</span>
+      <div class="metaphor-title">消息唯一ID</div>
+      <div class="metaphor-desc">快递单号<br>雪花算法/UUID/业务ID</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <span class="metaphor-emoji">📋</span>
+      <div class="metaphor-title">Redis SETNX</div>
+      <div class="metaphor-desc">签收记录本<br>快速判断已收未收</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <span class="metaphor-emoji">🗄️</span>
+      <div class="metaphor-title">DB 唯一约束</div>
+      <div class="metaphor-desc">物业系统兜底<br>Redis丢了DB也不重复</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-400">
+      <span class="metaphor-emoji">🔄</span>
+      <div class="metaphor-title">状态机 CAS</div>
+      <div class="metaphor-desc">快递追踪<br>待签收→已签收 防并发</div>
+    </div>
+  </div>
+
+  <div class="section highlight anim-fade-up">
+    <h3><span class="emoji">📋</span> 7步答题模板</h3>
+    <div class="answer-template">
+      <div class="step"><h4>第一步：为什么会重复？</h4><p>MQ 的投递语义有三种：at-most-once（可能丢）、at-least-once（可能重）、exactly-once（精确一次）。大多数 MQ 默认 at-least-once——生产者超时重发、Broker 主从切换重发、消费者未 ACK 重投。网络抖动也会导致重复。</p></div>
+      <div class="step"><h4>第二步：幂等性定义</h4><p>幂等性（Idempotence）：同一个操作执行一次和执行多次的效果相同。数学上 f(f(x)) = f(x)。MQ 场景下：同一条消息消费多次不会产生副作用（如重复扣款、重复下单）。</p></div>
+      <div class="step"><h4>第三步：方案一——唯一消息 ID + Redis</h4><p>生产者给每条消息生成全局唯一 ID（雪花算法/UUID）。消费者收到消息后：SETNX msg:consumer:{msgId} EX 3600，返回 1 说明第一次消费，处理业务；返回 0 说明已消费，直接 ACK 跳过。注意设置合理的过期时间。</p></div>
+      <div class="step"><h4>第四步：方案二——数据库唯一约束兜底</h4><p>利用数据库唯一索引作为最后防线。例如订单表 order_id 设唯一索引，INSERT 时用 INSERT IGNORE 或 ON DUPLICATE KEY UPDATE。即使 Redis 失效，数据库层面也不会产生重复数据。</p></div>
+      <div class="step"><h4>第五步：方案三——状态机前置判断</h4><p>在业务表中加状态字段（如 pending → processing → completed）。消费时先查状态：如果已经是 completed 则跳过；只有 pending 才执行。用 CAS（Compare And Swap）保证并发安全：UPDATE ... SET status='processing' WHERE id=xxx AND status='pending'。</p></div>
+      <div class="step"><h4>第六步：方案对比</h4><p>Redis 方案：性能最好（O(1)），但有丢失风险（重启/过期）。DB 唯一约束：最强保证，但有性能开销。状态机：适合有明确状态的业务，需要额外字段。生产环境常组合使用：Redis 做快速去重 + DB 唯一索引兜底。</p></div>
+      <div class="step"><h4>第七步：各 MQ 的可靠性支持</h4><p>RocketMQ：支持事务消息（半消息+回查），消费端返回 CONSUME_SUCCESS 才确认。Kafka：acks=all 保证生产可靠，手动提交 offset 保证消费可靠。RabbitMQ：publisher confirm + consumer ack。</p></div>
+    </div>
+  </div>
+
+  </section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"MQ 为了保证可靠性默认 at-least-once 语义，所以重复消费是必然的。解决方案是做消费者幂等，三种方式：一是唯一消息 ID + Redis SetNX，最快但可能丢失；二是数据库唯一索引兜底，最强保证但性能差一点；三是状态机前置判断，适合有明确状态的业务。生产环境我用 Redisson 分布式锁 + 唯一索引双向保证。"</div>
+    </div>
+  </div>
+</section>
+
+  <div class="section warning-zone">
+    <h3><span class="emoji">⚠️</span> 面试常见错误 vs 正确回答</h3>
+    <div class="compare">
+      <div class="col before">
+        <h4>❌ 错误回答</h4>
+        <p>"MQ 不会重复消费"<br><br>"加个锁就行"<br><br>"Redis 就够了不需要 DB"</p>
+      </div>
+      <div class="col after">
+        <h4>✅ 正确回答</h4>
+        <p>"MQ 默认 at-least-once，重复消费是常态，消费者必须做幂等"<br><br>"锁能防止并发，但不能防止消息重投——SETNX 才是防重"<br><br>"Redis 有丢失风险，DB 唯一约束做最终兜底才是完整方案"</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim-fade-up"><h3><span class="emoji">🌲</span> 追问树</h3>
+    <div class="tree">
+      <span class="node">重复消费</span><br>
+      <span class="branch">├─ 为什么会有重复？</span><br>
+      <span class="leaf">→ at-least-once / 生产超时重发 / 消费超时重投 / 网络抖动</span><br>
+      <span class="branch">├─ 什么是幂等性？</span><br>
+      <span class="leaf">→ f(f(x))=f(x)，同一条消息处理多次结果不变</span><br>
+      <span class="branch">├─ 方案 1：唯一消息 ID + Redis</span><br>
+      <span class="leaf">→ SETNX msg:consumer:{msgId}，先判断再处理，注意过期时间</span><br>
+      <span class="branch">├─ 方案 2：DB 唯一约束</span><br>
+      <span class="leaf">→ INSERT IGNORE / ON DUPLICATE KEY UPDATE，最强兜底</span><br>
+      <span class="branch">├─ 方案 3：状态机前置判断</span><br>
+      <span class="leaf">→ 先查 status，已处理跳过，用 CAS 保证并发安全</span><br>
+      <span class="branch">└─ 各 MQ 可靠性怎么保证？</span><br>
+      <span class="leaf">→ RocketMQ:事务消息+CONSUME_SUCCESS / Kafka:acks=all+手动提交</span>
+    </div>
+  </div>
+
+  <div class="memory-hook">
+    <div class="hook-label">🧠 记忆钩子</div>
+    <div class="hook-text">"重复消费像快递送两次：签收时看一眼（消息 ID），签过字了（Redis SetNX）就不再收。Redis 的签收本可能丢了 → 数据库最终防重复录入"</div>
+  </div>
+
+  <div class="section success-zone">
+    <h3><span class="emoji">✅</span> 自检清单</h3>
+    <ul class="check-list">
+      <li><input type="checkbox"> at-least-once 和 exactly-once 的区别？为什么大部分 MQ 做不到 exactly-once？</li>
+      <li><input type="checkbox"> Redis SETNX 过期时间设多少合适？为什么不能设太短/太长？</li>
+      <li><input type="checkbox"> 如果 Redis 挂了，怎么保证幂等？（DB 唯一约束兜底）</li>
+      <li><input type="checkbox"> 状态机 + CAS 的 SQL 怎么写？并发时怎么保证不出重复？</li>
+      <li><input type="checkbox"> 能不能只用分布式锁而不是 SETNX？（不能——重投不是并发问题）</li>
+      <li><input type="checkbox"> RocketMQ 事务消息机制能说清楚吗？</li>
+    </ul>
+  </div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

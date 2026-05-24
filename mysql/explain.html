@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Explain执行计划解读 — MySQL面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="index.html" class="mysql-link active">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb">
+    <a href="../index.html">首页</a> &raquo;
+    <a href="index.html">MySQL</a> &raquo;
+    <span>#05</span>
+  </div>
+  <h1>Explain执行计划解读</h1>
+  <span class="q-number">TOP 05 ⭐⭐⭐⭐⭐</span>
+</header>
+
+<div class="summary-box anim-scale">
+  <p class="big-conclusion">EXPLAIN分析SQL的核心字段：type（访问类型从好到差：system→const→eq_ref→ref→range→index→ALL）、key_len（索引使用长度）、rows（估计扫描行数）、Extra（Using index/Using filesort/Using temporary）</p>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 体检报告</div>
+  <div class="story-title">一份体检报告，告诉你身体哪里出了问题</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🩺</div>
+    <div><strong style="color:var(--accent)">场景：type 字段 = 体检指标</strong><br><span style="color:var(--text-secondary)">ALL = 癌症晚期（全表扫描，最差）；index = 三高（全索引扫，也不健康）；range = 亚健康（范围扫描，及格线）；ref = 正常（索引查找，不错）；const = 运动员（主键等值，最优）</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">📊</div>
+    <div><strong style="color:var(--accent)">场景：rows = 预估工作量</strong><br><span style="color:var(--text-secondary)">医生说"预估要处理1000个细胞样本"——rows=1000。如果实际需要处理的只有10个，那999个都是白费的——索引不合适，扫描了太多无用数据</span></div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">⚠️</div>
+    <div><strong style="color:var(--accent)">场景：Extra = 医生的特别嘱咐</strong><br><span style="color:var(--text-secondary)">Using filesort = "你需要额外做康复训练"；Using temporary = "需要住院观察"（建临时表）；Using index = "一切正常，身体很棒"（覆盖索引）</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-600">
+    <div class="scene-icon">🔑</div>
+    <div><strong style="color:var(--accent)">场景：key_len = 索引用到了多少</strong><br><span style="color:var(--text-secondary)">像药方里实际起效的药材克数——key_len越接近索引定义的总长度，说明索引利用率越高。key_len=4只用了第一列int，key_len=14可能三列全用上了</span></div>
+  </div>
+</section>
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100"><span class="metaphor-emoji">📋</span><div class="metaphor-title">type = 指标等级</div><div class="metaphor-desc">ALL(癌症)→index(三高)→range(亚健康)→ref→const(最优)</div></div>
+  <div class="metaphor-card anim-fade-up delay-200"><span class="metaphor-emoji">📈</span><div class="metaphor-title">rows = 预估天数</div><div class="metaphor-desc">rows越大→处理越多→越慢，优化目标越小越好</div></div>
+  <div class="metaphor-card anim-fade-up delay-300"><span class="metaphor-emoji">🏥</span><div class="metaphor-title">Extra = 医嘱</div><div class="metaphor-desc">filesort=需康复/temporary=需住院/Using index=健康</div></div>
+  <div class="metaphor-card anim-fade-up delay-400"><span class="metaphor-emoji">💊</span><div class="metaphor-title">key_len = 起效剂量</div><div class="metaphor-desc">越接近总长度=索引用得越充分</div></div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step"><h4>Step 1 — 是什么</h4><p>EXPLAIN是MySQL提供的SQL执行计划分析工具，展示优化器如何执行这条SQL——用什么索引、扫描多少行、是否排序等</p></div>
+    <div class="step"><h4>Step 2 — 为什么</h4><p>不会看执行计划=盲人开刀。一条SQL某天突然慢10倍，EXPLAIN告诉你是否索引失效、是否全表扫描、是否产生临时表</p></div>
+    <div class="step"><h4>Step 3 — 解决的核心问题</h4><p>定位慢SQL的瓶颈点：是索引没用到？是用了但扫描行数太大？是产生了文件排序？还是创建了磁盘临时表？</p></div>
+    <div class="step"><h4>Step 4 — 核心原理</h4><p>MySQL优化器根据统计信息(索引基数、表大小)生成多个执行计划，选代价最小的。EXPLAIN展示的就是这个最终选择的计划</p></div>
+    <div class="step"><h4>Step 5 — 缺点/局限</h4><p>EXPLAIN给出的是估计值，实际执行可能偏差大（统计信息不准）。不执行SQL，无法感知锁等待、BufferPool命中率等运行时因素</p></div>
+    <div class="step"><h4>Step 6 — 如何解决</h4><p>MySQL 5.6+的EXPLAIN FORMAT=JSON给出更详细信息；MySQL 8.0的EXPLAIN ANALYZE实际执行并统计每一步的耗时</p></div>
+    <div class="step"><h4>Step 7 — 实际落地</h4><p>日常开发中EXPLAIN是必须步骤。关注type<=range、key_len合理、Extra无Using filesort/Using temporary</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">看EXPLAIN结果，三字段最关键。第一看type：从const(主键等值，最优)→eq_ref(关联表唯一匹配)→ref(普通索引等值)→range(范围扫描)→index(全索引扫)→ALL(全表扫，最差)，至少要到range级别。第二看key_len：索引用了几列、每列用了几字节。key_len=4+2+1表示三列联合索引全用到了（int 4+ varchar(1) utf8mb4 5+ tinyint 1...具体跟字段类型相关）。第三看Extra：Using index=好(覆盖索引)、Using where=正常、Using filesort=危险(需要额外排序)、Using temporary=严重(建临时表)。</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before"><h4>❌ 错误表达</h4>
+      <ul>
+        <li>"type=index就是走索引了，说明没问题" — type=index是全索引扫描，和全表扫描一样慢，只是扫的是索引树</li>
+        <li>"Extra=Using where说明有问题" — Using where只是表示有过滤条件，完全正常</li>
+        <li>"possible_keys有值就说明走索引了" — possible_keys只是候选，key字段才是实际使用的索引</li>
+        <li>"rows就是实际返回行数" — rows是优化器的估计值，可能差几个数量级</li>
+      </ul></div>
+    <div class="col after"><h4>✅ 正确表达</h4>
+      <ul>
+        <li>"EXPLAIN的type从<strong>system > const > eq_ref > ref > range > index > ALL</strong>逐级变差，优化目标是至少达到range"</li>
+        <li>"<strong>Using filesort</strong>不等于一定用文件排序，很多时候在内存排序；但它是排序不走索引的信号，需要优化"</li>
+        <li>"<strong>key_len</strong>反映索引使用情况：联合索引用到的列越多，key_len越大。key_len比定义的总长小=部分列没用到"</li>
+        <li>"<strong>filtered</strong>字段(5.7+)很重要：rows × filtered% = 最终返回行数，值很小说明回表过滤掉大量数据，可能需要调整索引"</li>
+      </ul></div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">EXPLAIN 核心解读</div>
+    <div class="branch">├─ <span class="arrow">→</span> type字段的完整等级？</div>
+    <div class="leaf">│  └─ system(系统表1行) > const(主键/唯一索引等值，1行) > eq_ref(关联表唯一匹配，1对1) > ref(非唯一索引等值) > range(范围扫描，>/BETWEEN/IN) > index(全索引扫) > ALL(全表扫)</div>
+    <div class="branch">├─ <span class="arrow">→</span> key_len怎么算？</div>
+    <div class="leaf">│  └─ int=4字节；bigint=8；varchar(n) utf8mb4=n×4+2(变长标记)；char(n) utf8mb4=n×4；datetime=5(5.6.4+)。可为NULL+1字节</div>
+    <div class="branch">├─ <span class="arrow">→</span> Extra关键值含义？</div>
+    <div class="leaf">│  └─ Using index=覆盖索引(最优)；Using index condition=ICP索引下推；Using where=有WHERE过滤；Using filesort=额外排序；Using temporary=临时表；Using join buffer=BNL关联</div>
+    <div class="branch">├─ <span class="arrow">→</span> possible_keys vs key？</div>
+    <div class="leaf">│  └─ possible_keys=候选索引列表（优化器考虑过的）。key=最终选择的索引。possible_keys有值但key=NULL→索引失效</div>
+    <div class="branch">├─ <span class="arrow">→</span> 如何判断是否走索引？</div>
+    <div class="leaf">│  └─ type不ALL/index=走了索引。key有值=用了具体索引。key_len和索引定义吻合=充分利用。rows远大于实际返回→有过滤</div>
+    <div class="branch">├─ <span class="arrow">→</span> filtered字段怎么看？</div>
+    <div class="leaf">│  └─ 表示存储引擎返回的行中，满足WHERE条件的百分比。filtered=10%→引擎返回100行只有10行满足条件→回表浪费90行→考虑加联合索引</div>
+    <div class="branch">└─ <span class="arrow">→</span> EXPLAIN ANALYZE 和 EXPLAIN 区别？</div>
+    <div class="leaf">   └─ EXPLAIN不执行SQL，给估计值。EXPLAIN ANALYZE(8.0.18+)真实执行SQL，统计每步实际耗时和行数，但不能用于INSERT/UPDATE/DELETE</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">EXPLAIN就是SQL的<strong>体检报告</strong>：<strong>type</strong>=各项指标（好/中/差），<strong>rows</strong>=预估要处理多少行（工作量预估），<strong>Extra</strong>=医生的特别提示（有异常一定要处理），<strong>key</strong>=用了什么药（索引），<strong>filtered</strong>=有效率</div>
+  <div class="hook-text" style="margin-top:0.8rem;font-size:0.9rem;opacity:0.85">7级 — type从system到ALL | ≥range — 可接受的type底线 | Using index — 最优Extra(覆盖索引) | filesort — 需要优化的信号</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+<li><input type="checkbox"> 能手写出type的7级等级（从最优到最差）</li>
+    <li><input type="checkbox"> 能口算常见字段类型的key_len（int=4, bigint=8, varchar(n) utf8mb4=n*4+2）</li>
+    <li><input type="checkbox"> 能解释Using index / Using index condition / Using where 三者的区别</li>
+    <li><input type="checkbox"> 能指出Using filesort出现时需要怎么优化（建合适的联合索引让排序走索引）</li>
+    <li><input type="checkbox"> 能说明filtered字段的含义和如何利用它优化</li>
+    <li><input type="checkbox"> 能说出EXPLAIN vs EXPLAIN ANALYZE的区别和适用场景</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

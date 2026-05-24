@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GO-04 Context 超时控制与值传递 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="index.html" class="go-link active">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">Go</a> &rsaquo; Context</div>
+  <h1>🎯 Context 超时控制与值传递</h1>
+  <div class="meta">
+    <span>编号 GO-04</span>
+    <span>分类：并发控制</span>
+    <span>难度：⭐⭐⭐</span>
+    <span>频率：必问</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Context 是 Go 中传递请求范围数据（trace_id 等）和超时/取消信号的机制。采用树状结构向下传递，父 Context 取消时所有子 Context 自动取消，是控制 goroutine 生命周期的最佳实践。</div>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 多米诺骨牌</div>
+  <div class="story-title">推倒第一块，后面全部倒下——这就是 Context 的取消传播</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🎲</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：推倒第一块(WithCancel) = 遥控引爆</strong><br>
+      <span style="color:var(--text-secondary)">你搭了一排多米诺骨牌，每块骨牌代表一个 goroutine 任务。当你推倒最前面那块（调用 cancel()），所有后面的骨牌（子 Context）依次倒下（自动取消）。一条请求链路上的所有 goroutine，一个 cancel() 全部停掉——干净利落。</span>
+    </div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">⏰</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：定时器(WithTimeout) = 设定自动推倒时间</strong><br>
+      <span style="color:var(--text-secondary)">你给第一块骨牌装了个定时触发器，设定"3 秒后自动推倒"。时间一到，骨牌自动倒塌，后面的全部跟着倒。这就是 WithTimeout——请求 3 秒超时，超时后所有下游调用自动取消，不浪费任何资源。</span>
+    </div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">📝</div>
+    <div>
+      <strong style="color:var(--accent)">场景3：WithValue = 骨牌上贴便签信息</strong><br>
+      <span style="color:var(--text-secondary)">每块骨牌上贴了一张便签（如 trace_id、user_id），后面的骨牌需要时往回翻就能找到。但不能贴太多——骨牌是用来传递取消信号的，不是用来当快递盒的。业务参数走函数参数，只把请求元数据贴在骨牌上。</span>
+    </div>
+  </div>
+  <div class="story-scene anim-fade-right delay-600">
+    <div class="scene-icon">👂</div>
+    <div>
+      <strong style="color:var(--accent)">场景4：Done() channel = 等骨牌倒的信号</strong><br>
+      <span style="color:var(--text-secondary)">你盯着第一块骨牌，等它倒下的那一刻（&lt;-ctx.Done()）。一旦它倒了，你就知道该收工了——这就是 select + ctx.Done() 实现优雅退出。不倒 = 继续干活，倒了 = 立刻停手。</span>
+    </div>
+  </div>
+</section>
+
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">💣</span>
+    <div class="metaphor-title">WithCancel = 遥控引爆</div>
+    <div class="metaphor-desc">手动调用 cancel()，推倒第一块骨牌，连锁取消所有子任务</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">⏱️</span>
+    <div class="metaphor-title">WithTimeout = 定时炸弹</div>
+    <div class="metaphor-desc">设定倒计时，时间一到自动引爆，防止请求无限等待</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">🏷️</span>
+    <div class="metaphor-title">WithValue = 便签</div>
+    <div class="metaphor-desc">骨牌上贴的元数据，沿链查找即可获取，不传业务参数</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🔗</span>
+    <div class="metaphor-title">树状传播</div>
+    <div class="metaphor-desc">父→子单向取消，像骨牌传播一样不可逆，子取消不影响父</div>
+  </div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>Context 是 Go 标准库 <code>context</code> 包提供的一个接口类型，用于在 goroutine 之间传递截止时间（Deadline）、取消信号（Cancel）和请求范围数据（Value）。它是树状结构，每个 Context 都有一个 parent，取消信号从根向下传播。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要 Context</h4>
+      <p>在微服务架构中，一个外部 HTTP 请求可能触发多个下游 RPC 调用，每个调用又可能创建多个 goroutine。如果没有统一的超时控制和取消机制：①某个下游超时后上游 goroutine 继续空转浪费资源；②无法在请求链路中传递 trace_id 等元数据；③goroutine 泄漏风险高。Context 正是解决这些问题的标准方案。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 四种创建方式</h4>
+      <p>① <code>context.Background()</code>：根 Context，永不取消，用于 main、init、test 入口；② <code>context.TODO()</code>：不确定用哪个时的占位符；③ <code>context.WithCancel(parent)</code>：返回可手动 cancel 的子 Context；④ <code>context.WithTimeout/WithDeadline(parent, d)</code>：超时/截止时间自动 cancel；⑤ <code>context.WithValue(parent, key, val)</code>：携带键值对数据。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>Context 的本质是一个不可变的树状链表：CancelContext 内部有 <code>done</code> channel（closed 表示已取消）和 <code>children</code> map（子 Context 集合）。调用 cancel() 时，先 close(done)，再递归 cancel 所有 children。ValueContext 通过 parent 链向上查找：<code>ctx.Value(key)</code> 沿 parent 链逐级查找直到 root 或找到匹配 key。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 常见错误与陷阱</h4>
+      <p>① Context 存到 struct 中反复使用（应作为函数第一个参数传递）；② WithValue 的 key 用 string（应使用自定义类型，防止不同包 key 冲突）；③ 忘记调用 cancel()（WithTimeout/WithCancel 返回的 cancel 必须 defer cancel()，否则 goroutine 泄漏）；④ 在 select 中直接 <code>&lt;-ctx.Done()</code> 而不处理（应 return ctx.Err()）；⑤ Context 作为值传递时拷贝了不该拷贝的数据。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 最佳实践</h4>
+      <p>① 函数第一个参数：<code>func Do(ctx context.Context, ...)</code>；② 永远 <code>defer cancel()</code>；③ Value key 用未导出的自定义类型（<code>type ctxKey struct{}</code>），避免字符串冲突；④ 只传请求范围数据（trace_id, user_id），不传函数参数；⑤ 使用 <code>context.WithoutCancel()</code>（1.21+）在特定场景中断开取消传播。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地场景</h4>
+      <p>① HTTP Server：每个请求自动获得带超时的 ctx（<code>r.Context()</code>）；② gRPC 调用链：客户端 ctx 自动传播超时和 metadata 到服务端；③ 数据库查询：<code>db.QueryContext(ctx, sql, args)</code> 支持超时取消；④ 定时任务：<code>ctx, cancel := context.WithTimeout(bg, 30*time.Second)</code>；⑤ 优雅退出：监听 SIGTERM 后 cancel 全局 ctx，所有 goroutine 通过 &lt;-ctx.Done() 退出。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Context 是 Go 的请求生命周期管理器。核心三功能：超时控制、取消信号、值传递。四种创建：Background 做根、WithCancel 手动取消、WithTimeout 自动超时、WithValue 传元数据。树状结构，parent cancel 后所有 children 的 Done() channel 都会被 close。最佳实践：永远作为函数第一个参数、defer cancel()、Value key 用自定义类型。典型场景：HTTP→gRPC→DB 的请求链路中传递 trace_id 和超时。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"Context 就是用来传参数的"（错！主要功能是超时/取消，传值是次要）</li>
+        <li>"context.Background() 可以随便用"（根 context 不应该频繁创建，应该复用）</li>
+        <li>"context.WithValue 的 key 用 string 就行了"（容易跨包冲突，应该用自定义类型）</li>
+        <li>"cancel() 不调也没关系"（会导致 goroutine 泄漏！）</li>
+        <li>"Context 是并发安全的"（Context 是不可变的 immutable，不是并发安全）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"Context 核心功能是超时控制和 goroutine 取消，传值是附加能力"</li>
+        <li>"context.Background() 是根 Context，通常只在 main/init/test 中创建一次"</li>
+        <li>"WithValue 的 key 应该是未导出的自定义空 struct，避免字符串 key 冲突"</li>
+        <li>"WithCancel/WithTimeout 返回的 cancel 必须 defer cancel()，否则 goroutine 泄漏"</li>
+        <li>"Context 是不可变的，每个派生操作返回新 Context 而非修改原值"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">🎯 Context</div>
+    <div class="branch">├─ <span class="arrow">→</span> 为什么需要？</div>
+    <div class="leaf">│  ├─ 解决 goroutine 泄漏（无统一退出机制时阻塞的 goroutine 无法回收）</div>
+    <div class="leaf">│  ├─ 请求链路超时控制（上游超时→下游全部取消）</div>
+    <div class="leaf">│  └─ 请求元数据透传（trace_id, user_id 在调用链中传播）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 四种创建方式</div>
+    <div class="leaf">│  ├─ Background()：根，永不取消</div>
+    <div class="leaf">│  ├─ TODO()：占位符</div>
+    <div class="leaf">│  ├─ WithCancel(parent)：手动 cancel</div>
+    <div class="leaf">│  ├─ WithTimeout(parent, dur) / WithDeadline(parent, time)：超时自动 cancel</div>
+    <div class="leaf">│  └─ WithValue(parent, key, val)：键值对</div>
+    <div class="branch">├─ <span class="arrow">→</span> 树状结构</div>
+    <div class="leaf">│  ├─ 每个 Context 有 parent 指针和 children map</div>
+    <div class="leaf">│  ├─ cancel() → close(done channel) → 递归取消 children</div>
+    <div class="leaf">│  └─ 子 Context 取消不影响父 Context（单向传播）</div>
+    <div class="branch">├─ <span class="arrow">→</span> Done() channel 机制</div>
+    <div class="leaf">│  ├─ ctx.Done() 返回只读 channel（&lt;-chan struct{}）</div>
+    <div class="leaf">│  ├─ cancel 时 close(done), select 中 &lt;-ctx.Done() 立即就绪</div>
+    <div class="leaf">│  └─ ctx.Err() 返回取消原因：Canceled 或 DeadlineExceeded</div>
+    <div class="branch">└─ <span class="arrow">→</span> 最佳实践与反模式</div>
+    <div class="leaf">   ├─ ✅ 函数第一参数：func Do(ctx context.Context, arg string)</div>
+    <div class="leaf">   ├─ ✅ defer cancel() 防止泄漏</div>
+    <div class="leaf">   ├─ ✅ Value key 用自定义类型：type traceIDKey struct{}</div>
+    <div class="leaf">   ├─ ❌ Context 存入 struct 反复复用</div>
+    <div class="leaf">   └─ ❌ 用 Context 传业务参数（应该走函数参数）</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"Context 像多米诺骨牌：推倒最上面一块（cancel 父 Context），下面全部倒地（子 Context 全部取消）。WithTimeout 就是设了一个定时炸弹，时间到了自动推倒。WithValue 就是每块骨牌上贴了个标签，沿着骨牌链往上翻就能找到。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 说出 Context 的 5 种创建方式及各自用途</li>
+    <li><input type="checkbox"> 解释 parent cancel 后 children 自动取消的机制（done channel close + 递归）</li>
+    <li><input type="checkbox"> 写出正确的 context.WithValue key 定义方式（自定义类型）</li>
+    <li><input type="checkbox"> 说明为什么 WithCancel/WithTimeout 必须 defer cancel()</li>
+    <li><input type="checkbox"> 举例 3 个 Context 在生产中的使用场景（HTTP→gRPC→DB 链路）</li>
+    <li><input type="checkbox"> 说出 Context 不应该做的事（存入 struct、传业务参数、key 用 string）</li>
+    <li><input type="checkbox"> 用一段代码展示 select + ctx.Done() 实现优雅退出</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

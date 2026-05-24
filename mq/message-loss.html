@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>消息丢失问题 — MQ 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link active">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+  <div class="interview-header">
+    <div class="breadcrumb"><a href="../mq/index.html">MQ</a> / 消息丢失问题</div>
+    <h1>消息丢失 — 三阶段分析与解决方案</h1>
+    <div class="meta"><span>编号：MQ-02</span><span>难度：⭐⭐⭐⭐</span><span>频率：🔥🔥🔥🔥🔥</span></div>
+  </div>
+
+  <div class="summary-box anim-scale">
+    <div class="label">💡 一句话结论</div>
+    <div class="one-liner">消息丢失三阶段：生产丢失（异步发送未确认/网络故障）→ Broker 丢失（刷盘策略/主从切换）→ 消费丢失（自动 ACK / 未处理完就确认）。解决：生产者确认 + 同步刷盘 + 消费者手动 ACK。</div>
+  </div>
+
+  <!-- ====== 🎬 生活类比故事 ====== -->
+  <section class="story-section">
+    <div class="story-label">🎬 生活类比 — 消息丢失 = 传圣旨</div>
+    <div class="story-title">用「传圣旨」看懂三阶段防丢</div>
+    <div class="story-scene anim-fade-left">
+      <div class="scene-icon">📜</div>
+      <div>
+        <strong style="color:var(--accent)">场景1：生产端丢失 = 信使出发了但没人确认</strong><br>
+        <span style="color:var(--text-secondary)">皇帝（生产者）派信使送圣旨，信使骑马上路。<strong style="color:#f87171">异步发送 = 信使出门就不管了，到没到不知道</strong>。万一路上被山贼劫了（网络断了）、驿站烧了（Broker 宕机），圣旨就丢了。<strong style="color:#fbbf24">同步发送 + 确认回执 = 信使送到目的地，拿了回执单才回来复命</strong>。失败就再派一个信使（重试）。</span>
+      </div>
+    </div>
+    <div class="story-scene anim-fade-right delay-200">
+      <div class="scene-icon">🏛️</div>
+      <div>
+        <strong style="color:var(--accent)">场景2：Broker 丢失 = 驿站接到圣旨但没存档</strong><br>
+        <span style="color:var(--text-secondary)">信使把圣旨送到驿站（Broker），驿站掌柜把圣旨内容记在脑子里（<strong style="color:#f87171">异步刷盘 = 先记脑子里，有空再写下来</strong>）。突然地震驿站塌了——脑子里的圣旨全没了！<strong style="color:#fbbf24">同步刷盘 = 每接一道圣旨，立刻刻在石碑上</strong>（fsync 落盘），地震也不丢。代价？刻碑比脑子记慢 10 倍。</span>
+      </div>
+    </div>
+    <div class="story-scene anim-fade-left delay-400">
+      <div class="scene-icon">📨</div>
+      <div>
+        <strong style="color:var(--accent)">场景3：消费端丢失 = 收到圣旨没看完就烧了</strong><br>
+        <span style="color:var(--text-secondary)">地方官（消费者）收到圣旨，看都没看完就说"收到了"（<strong style="color:#f87171">自动 ACK</strong>），然后把圣旨烧了（offset 提交）。结果执行错了也没法重来。<strong style="color:#fbbf24">手动 ACK = 认真读完、执行完、确认无误后，才在签收簿上签字</strong>。执行失败了？不签字（不 ACK），让驿站重新送一份。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 技术映射卡片 ====== -->
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <span class="metaphor-emoji">📜</span>
+      <div class="metaphor-title">生产确认</div>
+      <div class="metaphor-desc">信使拿回执才复命<br>同步发送 + 重试机制</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <span class="metaphor-emoji">🏛️</span>
+      <div class="metaphor-title">同步刷盘</div>
+      <div class="metaphor-desc">驿站刻碑 永不丢失<br>代价：TPS 降 10 倍</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <span class="metaphor-emoji">📨</span>
+      <div class="metaphor-title">手动 ACK</div>
+      <div class="metaphor-desc">读完执行完才签字<br>失败不ACK让MQ重投</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-400">
+      <span class="metaphor-emoji">⚖️</span>
+      <div class="metaphor-title">可靠性代价</div>
+      <div class="metaphor-desc">零丢失 vs 高性能<br>金融必须 日志可容忍</div>
+    </div>
+  </div>
+
+  <div class="section highlight anim-fade-up">
+    <h3><span class="emoji">📋</span> 7步答题模板</h3>
+    <div class="answer-template">
+      <div class="step"><h4>第一步：一句话定义</h4><p>消息丢失是 MQ 中最严重的问题之一——消息发出去了但消费者没收到。要从消息生命周期的三个阶段（生产→存储→消费）分别分析。</p></div>
+      <div class="step"><h4>第二步：阶段一 — 生产端丢失</h4><p>生产者发消息但没真正到达 Broker。原因：①异步发送时 fire-and-forget 不确认；②网络瞬断；③Broker 不可用。解决：同步发送 + 确认回调（SendResult 检查 SendStatus=SEND_OK）+ 失败重试机制（retryTimesWhenSendFailed）。RocketMQ 有 send 和 send(msg, callback) 两种模式。</p></div>
+      <div class="step"><h4>第三步：阶段二 — Broker 端丢失</h4><p>消息到 Broker 但宕机丢失。原因：①异步刷盘（FLUSH_DISK_TYPE=ASYNC，默认）内存中没持久化就挂了；②主从异步复制（SYNC_MASTER=ASYNC）切换到未同步的从节点。解决：①同步刷盘（SYNC_FLUSH）每条消息都 fsync；②同步双写（SYNC_MASTER）主从都写完才返回。代价：性能下降约 10x。</p></div>
+      <div class="step"><h4>第四步：阶段三 — 消费端丢失</h4><p>消费者收到消息但没处理完。原因：①自动 ACK（Consumer 收到就确认，处理失败也丢了）；②先 ACK 后处理（ACK 后业务失败）；③offset 提交时机不对。解决：手动 ACK——处理完业务逻辑后，再调用 consumer.commitSync() 确认消费。失败则不 ACK，让 MQ 重投。</p></div>
+      <div class="step"><h4>第五步：RocketMQ 可靠性方案</h4><p>生产者：同步发送 + 重试 2 次（retryTimesWhenSendFailed=2）+ SendStatus 检查。Broker：同步刷盘（flushDiskType=SYNC_FLUSH）+ 同步双写（brokerRole=SYNC_MASTER）+ 多副本。消费者：手动提交 + consumeMessage orderly 保证顺序 + 消费失败返回 RECONSUME_LATER。</p></div>
+      <div class="step"><h4>第六步：Kafka 可靠性方案</h4><p>生产者：acks=all（所有 ISR 副本确认）+ retries=MAX + enable.idempotence=true。Broker：replication.factor≥3 + min.insync.replicas≥2 + unclean.leader.election.enable=false。消费者：enable.auto.commit=false + 手动 commitSync() + 消费逻辑放在 commit 之前。</p></div>
+      <div class="step"><h4>第七步：零丢失的代价</h4><p>可靠性 ≠ 免费。同步刷盘 TPS 下降约 10 倍；同步双写增加主从延迟；acks=all 增加延迟。需要根据业务场景权衡——金融/支付必须零丢失，日志/埋点可容忍少量丢失。</p></div>
+    </div>
+  </div>
+
+  </section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"消息丢失要分三段看：生产端用同步发送+确认回调保证消息发出；Broker 端用同步刷盘+同步双写保证消息持久化；消费端用手动 ACK 保证处理完才确认。但可靠性是有代价的——同步刷盘 TPS 掉 10 倍，所以不是所有场景都需要零丢失。RocketMQ 默认异步刷盘已经满足大部分需求，金融场景才需要全开。"</div>
+    </div>
+  </div>
+</section>
+
+  <div class="section warning-zone">
+    <h3><span class="emoji">⚠️</span> 面试常见错误 vs 正确回答</h3>
+    <div class="compare">
+      <div class="col before">
+        <h4>❌ 错误回答</h4>
+        <p>"MQ 不会丢消息"<br><br>"同步刷盘就万无一失"<br><br>"自动 ACK 更方便"</p>
+      </div>
+      <div class="col after">
+        <h4>✅ 正确回答</h4>
+        <p>"MQ 默认配置就是为了性能牺牲可靠性——异步刷盘+异步复制都可能丢"<br><br>"同步刷盘只解决 Broker 丢失，不解决生产和消费端丢失"<br><br>"自动 ACK 收到就确认，如果业务处理失败消息就丢了，必须手动 ACK"</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim-fade-up"><h3><span class="emoji">🌲</span> 追问树</h3>
+    <div class="tree">
+      <span class="node">消息丢失</span><br>
+      <span class="branch">├─ 生产端怎么丢？</span><br>
+      <span class="leaf">→ 异步 send 不确认 / 网络故障 / Broker 不可用</span><br>
+      <span class="branch">├─ Broker 端怎么丢？</span><br>
+      <span class="leaf">→ 异步刷盘(内存挂) / 异步主从复制(切到落后从节点)</span><br>
+      <span class="branch">├─ 消费端怎么丢？</span><br>
+      <span class="leaf">→ 自动 ACK(收到就确认) / 先 ACK 后处理 / offset 提交时机错</span><br>
+      <span class="branch">├─ RocketMQ 怎么保证零丢失？</span><br>
+      <span class="leaf">→ 同步发送 / 同步刷盘(SYNC_FLUSH) / 同步双写(SYNC_MASTER) / 手动 ACK</span><br>
+      <span class="branch">├─ Kafka 怎么保证零丢失？</span><br>
+      <span class="leaf">→ acks=all / replication.factor≥3 / 手动 commitSync()</span><br>
+      <span class="branch">└─ 零丢失的代价？</span><br>
+      <span class="leaf">→ TPS 降 10x / 延迟增加 / 不是所有场景都需要</span>
+    </div>
+  </div>
+
+  <div class="memory-hook">
+    <div class="hook-label">🧠 记忆钩子</div>
+    <div class="hook-text">"消息像传圣旨：发出没确认（生产丢失）、中间驿站丢了（Broker 丢失）、收到没看完就销毁（消费丢失）→ 三阶段都必须确认。同步刷盘 = 驿站拿到就刻碑上，异步刷盘 = 先记脑子里可能忘了。"</div>
+  </div>
+
+  <div class="section success-zone">
+    <h3><span class="emoji">✅</span> 自检清单</h3>
+    <ul class="check-list">
+      <li><input type="checkbox"> 三阶段分别丢在哪？能画出消息流转图吗？</li>
+      <li><input type="checkbox"> 同步刷盘和异步刷盘区别？代价是什么？</li>
+      <li><input type="checkbox"> SYNC_MASTER 和 ASYNC_MASTER 的区别？</li>
+      <li><input type="checkbox"> 手动 ACK 和自动 ACK 在代码层面怎么体现？</li>
+      <li><input type="checkbox"> Kafka acks=0 / 1 / all 有什么区别？为什么推荐 all？</li>
+      <li><input type="checkbox"> 什么场景可以接受消息丢失？什么场景必须零丢失？</li>
+    </ul>
+  </div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

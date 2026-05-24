@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tail 与日志排查 — Linux 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link active">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+  <div class="interview-header">
+    <div class="breadcrumb"><a href="../linux/index.html">Linux</a> / tail 与日志排查</div>
+    <h1>tail — 实时日志追踪与排查</h1>
+    <div class="meta"><span>编号：LINUX-07</span><span>难度：⭐⭐</span><span>频率：🔥🔥🔥🔥🔥</span></div>
+  </div>
+
+  <div class="summary-box anim-scale">
+    <div class="label">💡 一句话结论</div>
+    <div class="one-liner">tail -f file 实时追踪文件新增内容，tail -n 100 查看最后 100 行。日志排查三板斧：tail -f 追踪 + Ctrl+C 停止、grep 过滤、awk 提取列。配合 tee 同时显示和写入。日志切割用 logrotate 避免文件过大。</div>
+  </div>
+
+  <!-- ====== 🎬 生活类比故事 ====== -->
+  <section class="story-section">
+    <div class="story-label">🎬 生活类比 — tail -f = 追剧</div>
+    <div class="story-title">用「追剧」看懂日志排查</div>
+
+    <div class="story-scene anim-fade-left">
+      <div class="scene-icon">📺</div>
+      <div>
+        <strong style="color:var(--accent)">场景1：tail -f = 追剧模式，只看最新更新</strong><br>
+        <span style="color:var(--text-secondary)">你追的电视剧更新了。<strong style="color:#fbbf24">tail -f app.log</strong> = 打开追剧模式——屏幕一直播，来一集看一集（实时看日志新增内容）。不想看了？Ctrl+C = 关电视。想要"边看边录"？<strong style="color:#fbbf24">tail -f log | tee -a save.log</strong> = 一边看一边录下来。</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-right delay-200">
+      <div class="scene-icon">🎬</div>
+      <div>
+        <strong style="color:var(--accent)">场景2：head = 看预告片，grep = 只看特定演员</strong><br>
+        <span style="color:var(--text-secondary)"><strong style="color:#fbbf24">head -n 20</strong> = 看预告片（文件前 20 行），先了解讲了什么。<strong style="color:#fbbf24">tail -f log | grep ERROR</strong> = 追剧时只看有特定演员（ERROR）出场的集数。排查问题时，先 grep 定位角色，再用 -C 5 看他出场前后五分钟的剧情（上下文）。</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-left delay-400">
+      <div class="scene-icon">🔄</div>
+      <div>
+        <strong style="color:var(--accent)">场景3：tail -F = 追剧时换源自动续播</strong><br>
+        <span style="color:var(--text-secondary)">追的剧突然完结（日志被切割轮转），普通 <strong style="color:#f87171">tail -f 就停了（傻傻等旧文件）</strong>。<strong style="color:#fbbf24">tail -F</strong> 更聪明——发现剧换了新季（日志切割成新文件），自动追过去继续看。<strong style="color:#fbbf24">logrotate</strong> = 每季规定集数到了就换新剧集（按大小/时间切割）。</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <span class="metaphor-emoji">📺</span>
+      <div class="metaphor-title">tail -f</div>
+      <div class="metaphor-desc">追剧模式实时看<br>日志新增一行看一行</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <span class="metaphor-emoji">🎬</span>
+      <div class="metaphor-title">head / grep</div>
+      <div class="metaphor-desc">预告片 / 只看特定演员<br>前N行 / 过滤关键词</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <span class="metaphor-emoji">🔄</span>
+      <div class="metaphor-title">tail -F</div>
+      <div class="metaphor-desc">换源自动续看<br>日志切割后自动追新文件</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-400">
+      <span class="metaphor-emoji">📼</span>
+      <div class="metaphor-title">tee 双输出</div>
+      <div class="metaphor-desc">一边看一边录<br>屏幕+文件同时输出</div>
+    </div>
+  </div>
+
+  <div class="section highlight anim-fade-up">
+    <h3><span class="emoji">📋</span> 7步答题模板</h3>
+    <div class="answer-template">
+      <div class="step"><h4>第一步：一句话定义</h4><p>tail 是查看文件末尾内容的命令，-f（follow）模式是实时日志排查的核心工具，会持续输出文件新增的内容。</p></div>
+      <div class="step"><h4>第二步：核心参数</h4><p>tail -n N：显示最后 N 行（默认 10 行）。tail -f：持续追踪文件新增内容（ctrl+c 退出）。tail -F：同 -f 但文件被删除/轮转时会自动重新打开（更推荐）。tail -c BYTES：按字节数显示末尾。</p></div>
+      <div class="step"><h4>第三步：日志排查三板斧</h4><p>①tail -f /var/log/app.log | grep ERROR（实时过滤错误）；②ctrl+c 停止后，用 grep 关键词搜索上下文；③awk 提取关键列做统计分析。这是线上排查的标准流程。</p></div>
+      <div class="step"><h4>第四步：head 补充</h4><p>head -n N：查看文件前 N 行（默认 10）。head -c BYTES：按字节。tail + head 组合可以提取文件任意片段。tail -n +100 file | head -n 50（从第 100 行开始取 50 行）。</p></div>
+      <div class="step"><h4>第五步：tee 双输出</h4><p>tail -f app.log | tee output.log：一边看着屏幕，一边写入文件。tail -f app.log | tee -a output.log：追加写入。也可管道给 grep：tail -f app.log | tee -a output.log | grep ERROR。</p></div>
+      <div class="step"><h4>第六步：日志切割 logrotate</h4><p>单文件日志过大？logrotate 定期切割（rotate）：按大小/时间、压缩（compress）、保留份数（rotate N）、执行脚本（postrotate）。tail -F 能自动跟踪切割后的新文件（-f 不会）。</p></div>
+      <div class="step"><h4>第七步：journalctl（SystemD 时代）</h4><p>现在很多系统用 SystemD 管理服务，日志走 journald。journalctl -u service-name -f 实时查看服务日志。journalctl -u service-name --since "10 min ago" 按时间过滤。journalctl -u service-name -n 100 最后 100 行。</p></div>
+    </div>
+  </div>
+
+  <div class="timer-box">
+    <div class="timer-icon">⏱️</div>
+    <div>
+      <div class="timer-label">60秒面试表达</div>
+      <div class="timer-text">"tail -f 是最常用的日志排查命令。线上出了问题，我的标准流程：先 tail -f app.log | grep ERROR 看实时错误，定位到关键行后 ctrl+c，用 grep -C 看上下文，再用 awk 提取关键数值统计。tail -F 比 -f 更好——日志切割后能自动跟踪新文件。另外 cut 只能简单切列，awk 能做聚合计算，sed 做原地替换。配合 tee 可以边看边存。"</div>
+    </div>
+  </div>
+
+  <div class="section warning-zone">
+    <h3><span class="emoji">⚠️</span> 面试常见错误 vs 正确回答</h3>
+    <div class="compare">
+      <div class="col before">
+        <h4>❌ 错误回答</h4>
+        <p>"tail -f 就够用了"<br><br>"日志文件多了手动删就行"<br><br>"tail 只能看文本文件"</p>
+      </div>
+      <div class="col after">
+        <h4>✅ 正确回答</h4>
+        <p>"tail -F 能自动处理日志切割，生产环境更推荐"<br><br>"用 logrotate 自动切割+压缩+保留策略，避免磁盘打满"<br><br>"tail 可配合管道做实时处理：tail -f log | grep | awk"</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim-fade-up">
+    <h3><span class="emoji">🌲</span> 追问树</h3>
+    <div class="tree">
+      <span class="node">tail</span><br>
+      <span class="branch">├─ tail -f 和 tail -F 有什么区别？</span><br>
+      <span class="leaf">→ -F 文件切割后自动 re-open，-f 不会，生产用 -F</span><br>
+      <span class="branch">├─ tail -n N 怎么用？</span><br>
+      <span class="leaf">→ 查看最后 N 行，head -n N 看前 N 行</span><br>
+      <span class="branch">├─ 日志排查的标准流程？</span><br>
+      <span class="leaf">→ tail -f 实时看 → grep 过滤 → awk 提取/统计</span><br>
+      <span class="branch">├─ tee 怎么用？</span><br>
+      <span class="leaf">→ tail -f log | tee -a output.log，屏幕+文件同时输出</span><br>
+      <span class="branch">├─ logrotate 日志切割怎么配？</span><br>
+      <span class="leaf">→ /etc/logrotate.d/ 下配 rotate/compress/maxsize/postrotate</span><br>
+      <span class="branch">└─ SystemD 时代的 journalctl 怎么用？</span><br>
+      <span class="leaf">→ journalctl -u service-name -f / --since "10 min ago" / -n 100</span>
+    </div>
+  </div>
+
+  <div class="memory-hook">
+    <div class="hook-label">🧠 记忆钩子</div>
+    <div class="hook-text">"tail -f = 追剧（只看最新更新），head = 看开头（先看预告片），grep = 只看有特定演员的集数。tail -F = 追剧时换了播放源自动续上（-f 不会）。"</div>
+  </div>
+
+  <div class="section success-zone">
+    <h3><span class="emoji">✅</span> 自检清单</h3>
+    <ul class="check-list">
+      <li><input type="checkbox"> tail -f 和 tail -F 的本质区别？（inode 跟踪方式）</li>
+      <li><input type="checkbox"> 线上报错了，你的排查第一步是什么？（复现 → 日志 → 上下文）</li>
+      <li><input type="checkbox"> tee 命令的 -a 参数有什么用？不加会怎样？</li>
+      <li><input type="checkbox"> logrotate 的 rotate 参数和 maxage 参数区别？</li>
+      <li><input type="checkbox"> journalctl 比 tail -f /var/log/syslog 好在哪？</li>
+      <li><input type="checkbox"> 日志太大 tail -f 都卡怎么办？（less +G 跳到末尾，或 split 切割）</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

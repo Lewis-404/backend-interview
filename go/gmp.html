@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GO-03 GMP 调度模型详解 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="index.html" class="go-link active">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">Go</a> &rsaquo; GMP</div>
+  <h1>⚙️ GMP 调度模型详解</h1>
+  <div class="meta">
+    <span>编号 GO-03</span>
+    <span>分类：运行时</span>
+    <span>难度：⭐⭐⭐⭐⭐</span>
+    <span>频率：高频</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">GMP 模型是 Go 运行时的核心调度器：G = Goroutine（任务），M = Machine（OS 线程，真正执行体），P = Processor（逻辑处理器，数量 = GOMAXPROCS）。P 持有本地 runq，通过 Work Stealing 和 Handoff 实现高效的用户态调度。</div>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 厨房调度</div>
+  <div class="story-title">GMP 就像后厨：灶台、厨师、菜单的完美配合</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🍳</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：一个厨师 + 一个灶台 + 一道菜 = M:P:G = 1:1:1</strong><br>
+      <span style="color:var(--text-secondary)">P（灶台）是固定的，数量 = GOMAXPROCS = CPU 核数。M（厨师）站在灶台前做 G（菜）。一个厨师（M）必须绑定一个灶台（P）才能做菜（执行 G）。灶台有多少个，同时做菜的上限就是多少。</span>
+    </div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🤝</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：工作窃取 = 自己灶台的菜做完了，去隔壁灶台帮忙</strong><br>
+      <span style="color:var(--text-secondary)">某个厨师（M）的灶台（P）上没菜了（runq 为空），他去看看其他灶台有没有堆积的菜，从隔壁灶台的菜堆底部偷一半过来做。自己从菜堆顶部拿，别人从底部偷——不会打架，各取各的。</span>
+    </div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🛒</div>
+    <div>
+      <strong style="color:var(--accent)">场景3：Syscall Handoff = 厨师去买菜，灶台交给别的厨师</strong><br>
+      <span style="color:var(--text-secondary)">厨师正在做的菜需要去很远的地方买食材（阻塞系统调用，如 read），他暂时离开灶台。这时不能让他占着灶台——灶台（P）立刻交给另一个空闲的厨师（或临时雇一个），继续做灶台上的其他菜。老厨师买完菜回来，如果灶台被占了，就把菜放回公共菜单（全局队列）。</span>
+    </div>
+  </div>
+</section>
+
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🍳</span>
+    <div class="metaphor-title">P = 灶台</div>
+    <div class="metaphor-desc">固定数量 = GOMAXPROCS，同时做菜的上限，每个灶台有自己的备菜区(runq)</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">👨‍🍳</span>
+    <div class="metaphor-title">M = 厨师</div>
+    <div class="metaphor-desc">OS 线程，真正动手做菜的人。必须绑定灶台(P)才能做菜(执行G)</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">🍜</span>
+    <div class="metaphor-title">G = 菜</div>
+    <div class="metaphor-desc">要执行的任务(goroutine)，源源不断进来，做完一道接下一道</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">📋</span>
+    <div class="metaphor-title">全局队列 = 待做菜单本</div>
+    <div class="metaphor-desc">每个灶台都有本地菜单，公共菜单本只在本地菜单空时才翻</div>
+  </div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — GMP 三个字母分别是什么</h4>
+      <p><strong>G</strong>（Goroutine）：代表一个 goroutine，包含栈、指令指针（PC）、状态（_Gidle / _Grunnable / _Grunning / _Gwaiting / _Gdead）。<strong>M</strong>（Machine）：操作系统线程，真正执行计算任务的实体，每个 M 关联一个 OS 线程（pthread）。<strong>P</strong>（Processor）：逻辑处理器/调度上下文，持有本地 goroutine 队列（runq）、内存缓存（mcache）等资源。P 的数量由 <code>GOMAXPROCS</code> 决定，默认等于 CPU 核数。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要 GMP</h4>
+      <p>传统 N:1 协程模型（多个协程复用一个线程）无法利用多核；传统 1:1 线程模型创建和切换开销大。Go 采用 M:N 模型——N 个 goroutine 被调度到 M 个 OS 线程上执行，通过 P 作为中间层解耦 G 和 M，实现：①多核利用率高；②goroutine 创建开销极低；③用户态调度避开内核切换开销。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 调度循环核心流程</h4>
+      <p>核心函数 <code>schedule()</code> 的循环：①选择一个可运行的 G（优先本地 runq → 全局 runq → 其他 P 窃取 → 轮询网络）；②将 G 绑定到当前 M 上执行；③G 执行完毕或因阻塞让出时，M 重新进入 schedule() 选下一个 G。每一步都在用户态完成。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 三个关键机制深度解析</h4>
+      <p><strong>Work Stealing</strong>：当前 P 的 runq 为空时，从全局队列取一批（不超过 1/4），若全局也空，从其他 P 的 runq 尾部窃取一半。「从尾部窃取」减少锁竞争——自己从头部取，别人从尾部偷。<br><strong>Handoff</strong>：M 因系统调用（如 read）阻塞时，P 会被移交给另一个空闲的 M（或新建 M），不让 P 上的其他 goroutine 白白等待。<br><strong>抢占式调度（1.14+）</strong>：基于信号的异步抢占。后台线程 sysmon 检测运行超过 10ms 的 goroutine，向对应 M 发送 SIGURG 信号，迫使 G 在安全点让出。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 局限与坑</h4>
+      <p>① P 的数量固定，CPU 密集型任务过多时排队等 P；② Work Stealing 本身有锁开销（窃取时加锁）；③ syscall 频繁会触发大量 M 的创建（handoff），M 数量可能远超 P（M 缓存有上限 10000）；④ cgo 调用会阻塞整个 M，且不能 handoff；⑤ goroutine 饥饿理论上存在（极少数场景，1.14+ 抢占式调度基本解决）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何应对局限</h4>
+      <p>① CPU 密集任务用 <code>runtime.Gosched()</code> 主动让出；② IO 密集用 goroutine + channel 充分利用 handoff；③ 减少 cgo 调用，必要时走连接池；④ 监控 M 数量：<code>runtime.NumGoroutine()</code> / <code>runtime.NumCPU()</code>；⑤ 使用 <code>GODEBUG=schedtrace=1000</code> 观察调度行为。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实操落地</h4>
+      <p>① 通过 <code>GOMAXPROCS</code> 控制并发度（容器环境建议显式设置 = CPU limit 而非宿主管数）；② pprof 的 goroutine/mutex/block profile 分析调度延迟；③ 用 trace 工具可视化 GMP 调度过程：<code>go tool trace trace.out</code>；④ 生产环境调优：IO 密集型适当增大 GOMAXPROCS，CPU 密集型设为核心数即可。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"GMP 是 Go 的调度器三件套：G = Goroutine 任务、M = OS 线程执行体、P = 逻辑处理器。关键机制三个：①Work Stealing：P 空闲时从其他 P 的 runq 尾部偷一半 G；②Handoff：M 因系统调用阻塞时，P 换一个 M 继续跑；③抢占式调度：1.14 起用 SIGURG 信号强制运行超 10ms 的 G 让出 CPU。这三点共同保证 goroutine 的调度高效且公平。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"GMP 和操作系统进程调度一样"（GMP 是用户态调度器，仅在 Go 进程内）</li>
+        <li>"M 就是 goroutine"（混淆 G 和 M，M 是 OS 线程，真正执行 G 的载体）</li>
+        <li>"P 就是 CPU 核心"（P 是 Go 的逻辑抽象，最大值可大于 CPU 核数）</li>
+        <li>"没有 M 也能跑 goroutine"（M 是必需的，因为最终需要 OS 线程执行）</li>
+        <li>"Work Stealing 从头部偷"（应该从尾部偷，减少锁竞争）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"GMP 是 Go runtime 的 M:N 用户态调度器，与 OS 调度是两层"</li>
+        <li>"G 是任务、M 是（p）线程执行者、P 是调度上下文和资源持有者"</li>
+        <li>"P 数量 = GOMAXPROCS，默认 CPU 核数，可调，不大于 256"</li>
+        <li>"M 必须绑定 P 才能执行 G，P 是 M 获取 G 的入口"</li>
+        <li>"Work Stealing 从其他 P 的 runq 尾部偷一半，自己从头部取"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">⚙️ GMP 调度模型</div>
+    <div class="branch">├─ <span class="arrow">→</span> G — Goroutine</div>
+    <div class="leaf">│  ├─ 结构：g struct（stack, sched gobuf, status, atomicstatus）</div>
+    <div class="leaf">│  ├─ 状态机：_Gidle → _Grunnable → _Grunning → _Gwaiting → _Gdead</div>
+    <div class="leaf">│  └─ 初始栈 2KB，动态扩缩（最大 1GB）</div>
+    <div class="branch">├─ <span class="arrow">→</span> M — Machine（OS 线程）</div>
+    <div class="leaf">│  ├─ 结构：m struct（g0 调度栈, curg 当前 G, p 绑定的 P）</div>
+    <div class="leaf">│  ├─ 每个 M 有一个 g0（调度 goroutine，负责 schedule() 循环）</div>
+    <div class="leaf">│  └─ M 最大数量：10000（sched.maxmcount），可配置</div>
+    <div class="branch">├─ <span class="arrow">→</span> P — Processor</div>
+    <div class="leaf">│  ├─ 结构：p struct（runq [256]guintptr 本地队列, runnext, mcache）</div>
+    <div class="leaf">│  ├─ 数量 = GOMAXPROCS（默认 runtime.NumCPU()）</div>
+    <div class="leaf">│  └─ 持有 mcache（每个 P 独立的内存缓存，减少锁竞争）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 调度循环（schedule 函数）</div>
+    <div class="leaf">│  ├─ 1. 从 P.runnext 取 → 2. 从 P.runq 取（每 61 次从全局取一次）</div>
+    <div class="leaf">│  ├─ 3. 从全局队列取 → 4. 从网络 poller 取 → 5. 从其他 P 窃取</div>
+    <div class="leaf">│  └─ 取到后执行 execute(gp)，G 执行完走 goexit0 → 重新 schedule()</div>
+    <div class="branch">├─ <span class="arrow">→</span> Work Stealing 工作窃取</div>
+    <div class="leaf">│  ├─ 随机选一个 P，从它的 runq 尾部偷一半 G</div>
+    <div class="leaf">│  ├─ 自己从 runq 头部取 G，别人从尾部偷——减少锁竞争</div>
+    <div class="leaf">│  └─ 窃取失败则重试，最多 4 次（2*_GOMAXPROCS 次遍历）</div>
+    <div class="branch">├─ <span class="arrow">→</span> Syscall Handoff</div>
+    <div class="leaf">│  ├─ M 进入 blocking syscall → P 与 M 解绑 → P 找空闲 M 或新建 M</div>
+    <div class="leaf">│  ├─ syscall 返回后 M 尝试重新绑定原 P → 失败则把 G 放全局队列</div>
+    <div class="leaf">│  └─ 防止 P 上的其他 goroutine 因一个系统调用而全部等待</div>
+    <div class="branch">└─ <span class="arrow">→</span> 抢占式调度（Go 1.14+ 异步抢占）</div>
+    <div class="leaf">   ├─ sysmon 后台线程每 10ms 检测运行过久的 G</div>
+    <div class="leaf">   ├─ 向对应的 M 发送 SIGURG 信号</div>
+    <div class="leaf">   ├─ G 在安全点响应信号，调用 gopreempt_m 让出 P</div>
+    <div class="leaf">   └─ 解决了 1.13 之前"死循环不调用函数就无法被抢占"的问题</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"P 是灶台（固定数量 = CPU 核数）、M 是厨师（负责做菜）、G 是菜（源源不断上新）。一个厨师一次只能用一个灶台做一道菜（M:P:G = 1:1:1）。菜做完了（G 执行完），厨师马上做下一道。灶台上的菜做完了？厨师去隔壁灶台看看有没有剩菜（Work Stealing）。菜要炖（系统调用）？厨师暂时离开，灶台换另一个厨师顶上（Handoff）。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 当面画出 GMP 三者的关系图（G &rarr; P &rarr; M，P 有 runq，M 绑定 P）</li>
+    <li><input type="checkbox"> 说出 Work Stealing 的流程和"从尾部偷"的原因</li>
+    <li><input type="checkbox"> 解释 Syscall Handoff 的完整流程和设计意图</li>
+    <li><input type="checkbox"> 说明 Go 1.14 抢占式调度的改进（基于信号 vs 基于协作）</li>
+    <li><input type="checkbox"> 说出 G 的 5 个状态和状态转换路径</li>
+    <li><input type="checkbox"> 解释 schedule() 函数选择下一个 G 的优先级顺序</li>
+    <li><input type="checkbox"> 说出 GOMAXPROCS 的含义和默认值，以及容器环境下的注意事项</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

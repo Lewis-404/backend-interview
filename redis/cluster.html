@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cluster集群原理 — Redis 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+/* ===== Animation Keyframes ===== */
+@keyframes scaleIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes fadeUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes fadeLeft { from { transform: translateX(-40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes fadeRight { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.anim-scale, .anim-fade-up, .anim-fade-left, .anim-fade-right { opacity: 0; }
+.anim-scale.visible { animation: scaleIn 0.6s ease-out forwards; }
+.anim-fade-up.visible { animation: fadeUp 0.65s ease-out forwards; }
+.anim-fade-left.visible { animation: fadeLeft 0.6s ease-out forwards; }
+.anim-fade-right.visible { animation: fadeRight 0.6s ease-out forwards; }
+.delay-100.visible { animation-delay: 0.1s; } .delay-200.visible { animation-delay: 0.2s; }
+.delay-300.visible { animation-delay: 0.3s; } .delay-400.visible { animation-delay: 0.4s; }
+.delay-500.visible { animation-delay: 0.5s; } .delay-600.visible { animation-delay: 0.6s; }
+
+/* ===== Metaphor Section ===== */
+.metaphor-section { background: linear-gradient(135deg, #fef9e7 0%, #fff8e1 100%); border: 1px solid #f9e79f; border-radius: 16px; padding: 32px 28px; margin: 28px 0; position: relative; overflow: hidden; }
+.metaphor-section::before { content: "🏮"; position: absolute; top: 16px; right: 20px; font-size: 48px; opacity: 0.15; }
+.metaphor-title { font-size: 1.25em; font-weight: 700; color: #d4a017; margin-bottom: 6px; }
+.metaphor-subtitle { font-size: 0.88em; color: #8b7355; margin-bottom: 20px; }
+.story-block { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+@media (max-width: 768px) { .story-block { grid-template-columns: 1fr; } }
+.story-card { background: #fff; border-radius: 12px; padding: 18px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid #f39c12; }
+.story-card h5 { margin: 0 0 8px; font-size: 1em; color: #e67e22; display: flex; align-items: center; gap: 6px; }
+.story-card h5 .icon { font-size: 1.3em; }
+.story-card p { margin: 0; font-size: 0.9em; color: #555; line-height: 1.6; }
+.metaphor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.metaphor-card { background: #fff; border-radius: 10px; padding: 14px 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); text-align: center; border-top: 3px solid #f39c12; }
+.metaphor-card .m-icon { font-size: 1.8em; margin-bottom: 6px; }
+.metaphor-card .m-term { font-weight: 700; font-size: 0.85em; color: #d4a017; margin-bottom: 4px; }
+.metaphor-card .m-desc { font-size: 0.8em; color: #777; }
+</style>
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="index.html" class="redis-link active">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+<div class="interview-header">
+  <div class="breadcrumb"><a href="index.html">Redis</a> / 高可用</div>
+  <h1>#7 Cluster集群原理</h1>
+  <div class="meta">
+    <span>📚 难度：高级</span>
+    <span>⏱️ 建议作答：5-6 分钟</span>
+    <span>🔖 标签：高可用 / Cluster / 分片 / Gossip</span>
+  </div>
+</div>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Redis Cluster是<strong>去中心化分片方案</strong>：将<strong>16384个哈希槽</strong>分布在多个主节点，客户端通过<strong>CRC16(key) % 16384</strong>路由到对应节点。节点间通过<strong>Gossip协议</strong>传播拓扑和槽位信息，通过<strong>MOVED</strong>（永久重定向）和<strong>ASK</strong>（临时重定向，槽迁移中）处理请求路由。每个主节点可配置从节点实现自动故障转移。</div>
+</div>
+
+<section class="metaphor-section anim-fade-up">
+  <div class="metaphor-title">🏮 生活类比：分仓物流系统</div>
+  <div class="metaphor-subtitle">把技术概念映射到「物流仓库」的场景，秒懂 Redis Cluster</div>
+  <div class="story-block">
+    <div class="story-card anim-fade-left delay-200">
+      <h5><span class="icon">📦</span> 16384 个货架</h5>
+      <p>物流公司有 16384 个货架（哈希槽），分给 3 个仓库（主节点）。你寄快递时，根据快递单号的条形码（CRC16）自动算出该放哪个货架的哪个仓库。</p>
+    </div>
+    <div class="story-card anim-fade-right delay-400">
+      <h5><span class="icon">🚚</span> 货物搬家了</h5>
+      <p>仓库 A 的 1000-2000 号货架整体搬到了仓库 C。你去仓库 A 找货，工作人员说：“货已永久搬到 C”（MOVED 重定向）。你记下来，以后直接去 C 找。</p>
+    </div>
+    <div class="story-card anim-fade-left delay-600">
+      <h5><span class="icon">📋</span> 临时存放</h5>
+      <p>货架正在搬运中，部分货还在 A、部分已到 C。你去 A，工作人员说：“这批货正在搬，你这次去 C 找找看”（ASK 临时重定向）。但下次还来 A，因为搬完就统一了。</p>
+    </div>
+  </div>
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <div class="m-icon">📦</div>
+      <div class="m-term">哈希槽</div>
+      <div class="m-desc">16384 个货架</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <div class="m-icon">🚚</div>
+      <div class="m-term">MOVED</div>
+      <div class="m-desc">永久搬家</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <div class="m-icon">📋</div>
+      <div class="m-term">ASK</div>
+      <div class="m-desc">临时存放</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-400">
+      <div class="m-icon">📢</div>
+      <div class="m-term">Gossip</div>
+      <div class="m-desc">仓库互发传单</div>
+    </div>
+  </div>
+</section>
+
+
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>是什么（定义）</h4>
+      <p>Redis Cluster是Redis官方提供的分布式解决方案。它通过数据分片（Sharding）将数据分散到多个Redis节点，同时每个主节点可以有从节点保证高可用。与哨兵模式不同，Cluster是去中心化架构——没有单点的哨兵进程，每个节点都是对等的，通过Gossip协议互相通信。</p>
+    </div>
+    <div class="step">
+      <h4>为什么需要（与哨兵对比）</h4>
+      <p>哨兵模式解决高可用但无法解决数据量超单机内存的问题。当数据量达到TB级、QPS达到百万级时，哨兵模式无能为力。Cluster通过分片将数据打散到多个节点，每个节点只存一部分数据，实现水平扩展。官方推荐：总节点数不超过1000个。</p>
+    </div>
+    <div class="step">
+      <h4>解决什么问题</h4>
+      <p>① 数据水平分片（数据量超单机内存上限）。② 写性能水平扩展（多个主节点同时接受写入）。③ 自动故障转移（无需额外哨兵进程，集群内部选举）。④ 高可用+横向扩展一体化方案。</p>
+    </div>
+    <div class="step">
+      <h4>原理（核心机制）</h4>
+      <p><strong>哈希槽（Hash Slot）：</strong>总共16384个槽（0-16383）。每个Key通过<code>HASH_SLOT = CRC16(key) % 16384</code>计算所属槽。槽是数据迁移和路由的基本单位。如果Key包含<code>{...}</code>（hash tag），则只用花括号内的部分计算槽，确保相关Key在同一槽（如user:{1001}:profile和user:{1001}:orders）。</p>
+      <p><strong>请求路由：</strong>客户端可连接任意节点。节点计算Key的槽位，如果槽在本节点则处理；否则返回<strong>MOVED</strong>错误（携带目标节点地址），客户端缓存路由表后重定向。CLUSTER SLOTS命令可一次性获取完整的槽-节点映射。智能客户端（Jedis/Lettuce）会自动缓存路由表和处理MOVED重定向。</p>
+      <p><strong>槽迁移：</strong>使用CLUSTER SETSLOT命令迁移槽。迁移过程中槽在源节点标记为MIGRATING，目标节点标记为IMPORTING。此时请求命中源节点：如果Key还在则处理，已迁移则返回ASK重定向到目标节点。ASK是临时重定向（只对本次请求），客户端不更新路由表。</p>
+      <p><strong>Gossip协议：</strong>每个节点定期（每秒随机选几个节点）发送PING消息交换信息，包括：节点自身信息、已知节点列表（带flag和ping/pong时间）、槽位分布。接收到PONG或超时则标记节点状态。Gossip保证了最终一致性——拓扑信息最终会传播到所有节点。</p>
+      <p><strong>故障转移：</strong>节点间通过Gossip检测故障。超过半数主节点认为某主节点不可达+cluster-node-timeout超时，则标记为FAIL。该主节点的从节点发起选举：向其他主节点请求投票，获得多数票的提升为新主节点，接管原主的槽。</p>
+    </div>
+    <div class="step">
+      <h4>缺点与权衡</h4>
+      <p>① 不支持多Key跨槽操作（如MSET key1 key2必须同槽，否则报错CROSSSLOT）。② 批量操作用hash tag解决了同槽问题但可能导致数据倾斜（热点槽）。③ 网络分区可能导致脑裂（分区两边各自认为自己是主）。④ 槽迁移是同步阻塞的（迁移单个Key时该Key不可用）。⑤ Gossip协议有收敛延迟（秒级），不如集中式元数据精确。⑥ 没有像哨兵一样的独立监控层，故障判断依赖节点间互PING。</p>
+    </div>
+    <div class="step">
+      <h4>如何解决缺点</h4>
+      <p>跨槽操作 → 业务设计时按用户/商户维度聚合数据，使用hash tag分到同槽。数据倾斜 → 监控槽的Key数量分布，必要时手动rebalance。脑裂 → 合理设置cluster-node-timeout（不要太短），配置min-replicas-to-write。槽迁移阻塞 → 使用MIGRATE命令时控制pipeline大小，分批迁移。Gossip延迟 → 合理设置cluster-node-timeout（默认15s，生产可调为10-20s）。</p>
+    </div>
+    <div class="step">
+      <h4>落地建议</h4>
+      <p>标准部署：至少3主3从（6节点），分布在不同物理机/可用区。cluster-node-timeout建议10-15s。核心配置：cluster-enabled yes、cluster-config-file nodes.conf、cluster-require-full-coverage yes（所有槽都有节点才接受写入）。监控：每个节点的槽数分布、节点状态（cluster nodes命令）、迁移进度。客户端选Lettuce（支持Cluster拓扑自动刷新）或Jedis。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⚡</div>
+    <div>
+      <div class="timer-label">面试官："Cluster是怎么工作的？"</div>
+      <div class="timer-text">"Cluster把数据分到16384个哈希槽，每个主节点负责一部分槽。Key通过CRC16(key)%16384计算属于哪个槽。客户端连接任意节点，如果Key不在当前节点会收到MOVED重定向（带目标节点地址），智能客户端会自动缓存路由表。节点之间通过Gossip协议交换拓扑信息，主节点挂了其从节点自动发起选举接管槽。槽迁移时用ASK临时重定向。不支持跨槽的多Key操作，需要用hash tag把相关Key分到同一槽。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 面试中注意 — 错误 vs 正确</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <p>"Cluster就是哨兵加多了几个Redis"</p>
+      <p>"MOVED和ASK是一样的"</p>
+      <p>"16384个槽太少了应该65536"</p>
+      <p>"Cluster有中心化的元数据节点"</p>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <p>"Cluster和哨兵是<strong>完全不同</strong>的架构：Cluster是去中心化+数据分片，哨兵是中心化（哨兵集群）+不拆分数据。数据量超单机内存必须Cluster"</p>
+      <p>"MOVED表示<strong>槽已被永久迁移</strong>（客户端应更新路由表），ASK表示<strong>槽正在迁移中</strong>（临时重定向，客户端不更新路由表，下次还走原节点）"</p>
+      <p>"选16384而不是65536的原因：① 节点间Gossip消息用bitmap表示槽位，16384=2KB，65536=8KB，<strong>4倍带宽</strong>差距 ② 实际节点数远小于16384（<1000），65536浪费 ③ 16384足够均匀分布"</p>
+      <p>"Cluster是<strong>完全去中心化</strong>的：没有配置中心、没有名字服务、没有元数据节点。每个节点都是对等的，通过Gossip协议了解全局"</p>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">Redis Cluster</div>
+    <div class="branch">├─ 16384哈希槽
+      <div class="leaf">├─ 为什么不是65536：Gossip消息头的bitmap为16384/8=2KB vs 65536/8=8KB（4倍带宽）</div>
+      <div class="leaf">├─ 实际节点数（<1000）远小于16384，65536纯浪费</div>
+      <div class="leaf">├─ CRC16(k) % 16384：CRC16输出0-65535，取模到16384</div>
+      <div class="leaf">└─ hash tag：{user:1001} → 括号内部分计算槽，保证同用户的多个Key在同一节点</div>
+    </div>
+    <div class="branch">├─ MOVED vs ASK
+      <div class="leaf">├─ MOVED：-MOVED 3999 127.0.0.1:6380 → 槽已永久迁移，客户端更新路由表</div>
+      <div class="leaf">├─ ASK：-ASK 3999 127.0.0.1:6380 → 槽迁移中，客户端先发ASKING命令再重试（一次性）</div>
+      <div class="leaf">├─ 判断依据：节点维护的槽状态 → MIGRATING（源） / IMPORTING（目标）</div>
+      <div class="leaf">└─ ASK流程：① 客户端收到ASK ② 向目标节点发ASKING ③ 目标节点临时处理一次 ④ 下次还走原节点</div>
+    </div>
+    <div class="branch">├─ Gossip协议
+      <div class="leaf">├─ 每条PING消息携带：节点自身信息 + 随机几个其他节点信息（gossip entries）</div>
+      <div class="leaf">├─ PING/PONG/MEET三种消息类型</div>
+      <div class="leaf">├─ 每秒随机选几个节点PING（cluster-node-timeout/2秒未通信的优先）</div>
+      <div class="leaf">└─ 故障检测：PING超时 → PFAIL（疑似）→ 超半数主确认 → FAIL（确认下线）</div>
+    </div>
+    <div class="branch">├─ 节点间通信
+      <div class="leaf">├─ 每个节点有TCP服务端口（如6379）和Cluster总线端口（10000+服务端口，如16379）</div>
+      <div class="leaf">├─ 服务端口：客户端连接；总线端口：节点间Gossip通信（二进制协议）</div>
+      <div class="leaf">└─ 防火墙需要同时开放两个端口</div>
+    </div>
+    <div class="branch">└─ 故障转移（去中心化选举）
+      <div class="leaf">├─ 检测：PFAIL（单节点判断）→ FAIL（超半数主节点确认）</div>
+      <div class="leaf">├─ 从节点发现主节点FAIL后，等待cluster-node-timeout*2后发起选举</div>
+      <div class="leaf">├─ 请求所有主节点投票，获得≥N/2+1票提升为新主</div>
+      <div class="leaf">├─ 新主接管槽位并向集群广播PONG，旧主恢复后自动成为新主从节点</div>
+      <div class="leaf">└─ 与哨兵区别：无独立哨兵进程，选举逻辑内嵌在每个Redis节点中</div>
+    </div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"Cluster像分仓物流系统：16384个货架（槽）分给不同仓库（主节点），货物（Key）按条码（CRC16）自动路由到对应仓库。仓库之间互发传单通报库存变化（Gossip PING/PONG）。货物搬家（槽迁移）期间，原仓库贴条'已搬走'（MOVED），搬运中的货架贴条'正在搬运，去那边看看'（ASK）。某个仓库着火（主节点挂），副仓库长立刻接管（从节点选举升级）。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检 Checklist</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 能写出Key路由公式：CRC16(key) % 16384</li>
+    <li><input type="checkbox"> 能说清楚为什么是16384个槽而不是65536</li>
+    <li><input type="checkbox"> 能区分MOVED（永久重定向，更新路由表）和ASK（临时重定向，不更新路由表）</li>
+    <li><input type="checkbox"> 能描述Gossip协议的PING/PONG/MEET消息类型和作用</li>
+    <li><input type="checkbox"> 能解释节点间通信的两个端口（服务端口+Cluster总线端口）</li>
+    <li><input type="checkbox"> 能说出hash tag的语法（{...}）和使用场景</li>
+    <li><input type="checkbox"> 能描述Cluster故障转移的流程（PFAIL→FAIL→选举→接管槽）</li>
+    <li><input type="checkbox"> 能讲清Cluster和哨兵模式的核心区别和各自适用场景</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <a href="sentinel.html">← 上一题：哨兵模式详解</a> &nbsp;|&nbsp;
+  <a href="distributed-lock.html">下一题：分布式锁实现 →</a>
+</div>
+
+</div>
+
+<script>
+(function(){const o=new IntersectionObserver((e)=>{e.forEach(e=>{if(e.isIntersecting)e.target.classList.add("visible")})},{threshold:0.1,rootMargin:"0px 0px -40px 0px"});document.querySelectorAll(".anim-scale,.anim-fade-up,.anim-fade-left,.anim-fade-right").forEach(e=>o.observe(e))})();
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

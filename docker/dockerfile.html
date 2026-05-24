@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DO-01 Dockerfile 最佳实践 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="index.html" class="docker-link active">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">Docker</a> &rsaquo; Dockerfile 最佳实践</div>
+  <h1>🐳 Dockerfile 最佳实践</h1>
+  <div class="meta">
+    <span>编号 DO-01</span>
+    <span>分类：镜像构建</span>
+    <span>难度：⭐⭐⭐</span>
+    <span>频率：高频</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Dockerfile 是镜像构建蓝图。最佳实践：多阶段构建（编译+运行分离减小镜像）、利用构建缓存（COPY/ADD 在最后）、.dockerignore 排除无关文件、CMD 运行（可覆盖）vs ENTRYPOINT 入口（不可覆盖）、尽量用非 root 用户。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「做菜」看懂 Dockerfile 全部指令</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🛒</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：FROM = 采购食材</strong><br><span style="color:var(--text-secondary)">做菜前你得先决定去哪买菜——是去精品超市（Alpine ~5MB）还是大卖场（Ubuntu ~70MB）。<strong style="color:#fbbf24">FROM alpine:3.19</strong> 就是选食材来源，食材越精简，最后端上桌的菜越轻巧。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">🥬</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🔪</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：RUN = 处理食材</strong><br><span style="color:var(--text-secondary)">买完菜开始切、洗、腌——<strong style="color:#fbbf24">RUN apt install</strong> 就是处理食材。聪明厨师会把好几步处理合在一起（RUN a && b && c），而不是切一下停一下。处理完记得清理台面（apt clean）。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">📦</div>
+    <div>
+      <strong style="color:var(--accent)">场景3：COPY = 把菜放到盘子里</strong><br><span style="color:var(--text-secondary)"><strong style="color:#fbbf24">COPY . /app</strong> 就是把你的食材（代码/配置）从厨房台面搬到盘子里。用 <strong style="color:#fbbf24">.dockerignore</strong> 就是先挑掉烂菜叶（node_modules/.git），别一股脑全倒进去——盘子装脏东西，整道菜就毁了。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">🍽️</div>
+    <div>
+      <strong style="color:#a78bfa">场景4：CMD vs ENTRYPOINT = 上菜方式</strong><br><span style="color:var(--text-secondary)"><strong style="color:#a78bfa">CMD</strong> 是「今天推荐的菜」（可被客人换掉——docker run 传参覆盖），<strong style="color:#a78bfa">ENTRYPOINT</strong> 是「本店固定上菜仪式」（不能换），两者组合就是「固定仪式+默认菜品」——比如 ENTRYPOINT ["nginx"] + CMD ["-g", "daemon off;"]。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-600">
+    <div class="scene-icon">👨‍🍳</div>
+    <div>
+      <strong style="color:#34d399">场景5：多阶段构建 = 先备菜再烹饪</strong><br><span style="color:var(--text-secondary)">大厨做法：第一阶段在后厨备料（<strong style="color:#34d399">FROM golang AS builder</strong>）编译二进制，第二阶段在明档区烹饪摆盘（<strong style="color:#34d399">FROM alpine</strong>），<strong style="color:#34d399">COPY --from=builder</strong> 只把成品端过来。客人看到的只有精致的摆盘（最终镜像 15MB），看不到乱糟糟的后厨（编译工具链）。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🛒</span>
+    <div class="metaphor-title">FROM</div>
+    <div class="metaphor-desc">选食材来源
+Alpine轻量/Ubuntu全但大</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">🔪</span>
+    <div class="metaphor-title">RUN</div>
+    <div class="metaphor-desc">处理食材
+合并指令减少层数</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">📦</span>
+    <div class="metaphor-title">COPY</div>
+    <div class="metaphor-desc">摆盘上菜
+.dockerignore过滤杂物</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🍽️</span>
+    <div class="metaphor-title">CMD/ENTRYPOINT</div>
+    <div class="metaphor-desc">上菜方式
+CMD可换/ENTRYPOINT不可换</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>Dockerfile 是一个文本文件，包含一系列指令，每条指令构建一层，最终生成 Docker 镜像。它是镜像的"源代码"，定义了应用运行所需的完整环境。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>保证环境一致性：开发、测试、生产环境完全一致；可版本控制（提交到 Git）；可复用和共享（Docker Hub/私有仓库）；声明式构建，消除"在我机器上能跑"的问题。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>解决"环境不一致导致线上事故"的痛点。传统部署：手动装依赖 → 版本冲突 → 回滚困难。Dockerfile 将环境代码化，实现了 Infrastructure as Code。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>每条指令创建一层（UnionFS），层是只读的，只有最顶层（容器层）可写。构建时利用层缓存：如果某层和之前完全一样，直接用缓存跳过。因此 <code>COPY</code> 和 <code>ADD</code> 放在后面（前面是变化少的 RUN apt install），<code>.dockerignore</code> 排除 node_modules 等避免缓存失效。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① 层数过多导致镜像臃肿；② 不合理的指令顺序会导致缓存频繁失效；③ <code>ADD</code> 有自动解压 tar 的副作用，容易误用；④ 如果不在最后清理临时文件，镜像会很大；⑤ root 用户运行有安全风险。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① 多阶段构建：第一阶段编译，第二阶段只拷贝二进制；② 合并 RUN 指令（用 && 连接），减少层数；③ 优先用 COPY 而非 ADD；④ RUN 后立即清理 apt/yum 缓存；⑤ <code>USER 1000</code> 切换到非 root 用户运行。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>Go 项目典型 Dockerfile：第一阶段 <code>FROM golang:1.21-alpine AS builder</code> 编译二进制；第二阶段 <code>FROM alpine:3.19</code> 只拷贝编译产物 + 配置文件，最终镜像仅 15MB。配合 <code>.dockerignore</code> 排除 vendor/.git/ 等无关文件。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Dockerfile 是镜像构建蓝图，每条指令一层。最佳实践五条：①多阶段构建——编译和运行分开，最终镜像只放二进制；②利用构建缓存——变化少的放前面，COPY 放最后；③.dockerignore——排除 node_modules/.git 等避免缓存失效；④CMD vs ENTRYPOINT——CMD 可被 docker run 覆盖，ENTRYPOINT 不行，两者常组合用；⑤用非 root 用户——USER 指令切换到普通用户，安全第一。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"Dockerfile 就是写一堆指令"（没说每条指令一层，没说缓存）</li>
+        <li>"CMD 和 ENTRYPOINT 一样"（完全不同，一个是默认命令可覆盖，一个是入口不可覆盖）</li>
+        <li>"把所有东西都打到一个镜像里"（臃肿、不安全、违反单一职责）</li>
+        <li>"用 root 跑就行"（安全红线，生产环境大忌）</li>
+        <li>"多阶段构建就是分两个 Dockerfile"（是在一个 Dockerfile 中用多个 FROM）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"每条指令一层，利用 UnionFS 层缓存加速构建"</li>
+        <li>"CMD 是默认命令可被 <code>docker run cmd</code> 覆盖；ENTRYPOINT 是固定入口不可覆盖，组合用实现默认参数+固定入口"</li>
+        <li>"多阶段构建：<code>FROM ... AS builder</code> → <code>FROM alpine</code> → <code>COPY --from=builder</code>，最终镜像只有运行时"</li>
+        <li>"<code>USER 1000:1000</code> 非 root 运行，<code>RUN apt clean && rm -rf /var/lib/apt/lists/*</code> 清理缓存"</li>
+        <li>"<code>.dockerignore</code> 排除.git/、node_modules/、*.md 等，避免 COPY 阶段带入脏文件"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">🐳 Dockerfile</div>
+    <div class="branch">├─ <span class="arrow">→</span> 指令</div>
+    <div class="leaf">│  ├─ FROM（基础镜像）</div>
+    <div class="leaf">│  ├─ RUN（执行命令，构建时）</div>
+    <div class="leaf">│  ├─ COPY vs ADD（COPY 原样复制；ADD 有 tar 自动解压 + URL 下载）</div>
+    <div class="leaf">│  ├─ CMD vs ENTRYPOINT（CMD 可覆盖默认参数；ENTRYPOINT 固定入口）</div>
+    <div class="leaf">│  ├─ WORKDIR（设置工作目录，后续指令基于此目录）</div>
+    <div class="leaf">│  └─ EXPOSE（声明端口，实际映射靠 -p）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 多阶段构建</div>
+    <div class="leaf">│  ├─ AS 命名阶段（FROM golang AS builder）</div>
+    <div class="leaf">│  ├─ COPY --from=builder（从第一阶段拷贝产物）</div>
+    <div class="leaf">│  └─ 最终镜像只含运行时依赖（Alpine + 二进制）</div>
+    <div class="branch">├─ <span class="arrow">→</span> CMD vs ENTRYPOINT 组合</div>
+    <div class="leaf">│  ├─ 只有 CMD：docker run 传参覆盖整个 CMD</div>
+    <div class="leaf">│  ├─ 只有 ENTRYPOINT：docker run 传参作为 ENTRYPOINT 的参数</div>
+    <div class="leaf">│  └─ 组合：ENTRYPOINT 定义程序，CMD 定义默认参数（最佳实践）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 构建缓存机制</div>
+    <div class="leaf">│  ├─ 每层有唯一 ID（基于指令+内容哈希）</div>
+    <div class="leaf">│  ├─ 相同指令+相同上下文 → 命中缓存</div>
+    <div class="leaf">│  └─ 某层变化 → 该层及之后全部重建</div>
+    <div class="branch">└─ <span class="arrow">→</span> 镜像瘦身</div>
+    <div class="leaf">   ├─ Alpine 基础镜像（~5MB vs Ubuntu ~70MB）</div>
+    <div class="leaf">   ├─ RUN 后清理 apt 缓存</div>
+    <div class="leaf">   └─ 多阶段构建只拷贝最终产物</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"Dockerfile = 菜谱：FROM = 买材料，RUN = 处理食材，COPY = 放菜，CMD = 上菜（可以换菜），ENTRYPOINT = 固定的上菜方式"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 说出多阶段构建的目的和写法（FROM ... AS / COPY --from）</li>
+    <li><input type="checkbox"> 解释 CMD 和 ENTRYPOINT 的区别及组合用法</li>
+    <li><input type="checkbox"> 解释构建缓存原理：为什么 COPY 放后面？</li>
+    <li><input type="checkbox"> 说出至少 3 条镜像瘦身方法（Alpine/清理缓存/多阶段）</li>
+    <li><input type="checkbox"> 解释 .dockerignore 的作用和常见忽略项</li>
+    <li><input type="checkbox"> 说明 ADD 和 COPY 的区别（ADD 自动解压 tar + URL 下载）</li>
+    <li><input type="checkbox"> 能一句话总结："Dockerfile 是镜像构建蓝图，多阶段+缓存+非root是三条核心最佳实践"</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

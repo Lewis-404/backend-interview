@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CI/CD 面试专题 — Go 后端面试训练营</title><link rel="stylesheet" href="../css/style.css">
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav"><a href="../index.html" class="nav-home">🧧 面试训练营</a><a href="../go/index.html" class="go-link">Go</a><a href="../mysql/index.html" class="mysql-link">MySQL</a><a href="../redis/index.html" class="redis-link">Redis</a><a href="../linux/index.html" class="linux-link">Linux</a><a href="../mq/index.html" class="mq-link">MQ</a><a href="../docker/index.html" class="docker-link">Docker</a><a href="../k8s/index.html" class="k8s-link">K8s</a><a href="index.html" class="cicd-link active">CI/CD</a><a href="../system-design/index.html" class="sd-link">系统设计</a><a href="../ai-engineering/index.html" class="ai-link">AI 工程</a></nav>
+<div class="container"><div class="hero"><div class="icon">🔄</div><h1 style="color:var(--cicd-green)">CI/CD 面试专题</h1><p class="subtitle">持续集成 · 持续交付 · 流水线</p></div>
+<div class="summary-box"><div class="label">🎯 CI/CD 面试核心</div><div class="one-liner" style="font-size:18px">提交→编译→测试→构建镜像→部署测试→集成测试→部署生产 = 完整流水线</div></div>
+<div class="card-grid">
+  <a href="pipeline.html" class="card"><div class="card-num">CI-01</div><h3>CI/CD 流水线设计</h3><p>代码提交→测试→构建→镜像→部署</p></a>
+</div>
+<div class="page-footer">来财出品 · Go 后端面试训练营 · 2026.05.24</div></div>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body></html>

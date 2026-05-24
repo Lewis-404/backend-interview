@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K8S-02 Deployment 滚动更新 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="index.html" class="k8s-link active">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">K8s</a> &rsaquo; Deployment 滚动更新</div>
+  <h1>☸️ Deployment 滚动更新</h1>
+  <div class="meta">
+    <span>编号 K8S-02</span>
+    <span>分类：工作负载</span>
+    <span>难度：⭐⭐⭐⭐</span>
+    <span>频率：必问</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Deployment 管理 ReplicaSet 实现声明式更新和滚动升级。滚动更新：逐步替换旧 Pod（maxSurge 超出数 / maxUnavailable 不可用数），支持回滚（kubectl rollout undo）。ReplicaSet 保证 Pod 副本数始终为期望值。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「电影剧组」看懂 Deployment 滚动更新</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🎬</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：Deployment = 电影导演</strong><br><span style="color:var(--text-secondary)">导演喊一声「我要 3 个 nginx:1.21 的演员」（声明期望状态），场记（ReplicaSet）就去安排：张三李四王五就位。导演不用亲自找人——指挥场记就行。这就是 <strong style="color:#fbbf24">Deployment → ReplicaSet → Pod</strong> 的三层关系。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">🎬</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🎞️</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：滚动更新 = 一幕一幕拍</strong><br><span style="color:var(--text-secondary)">导演要换演员：不能全场全撤——要一个一个换。让新演员先上场（新 ReplicaSet 扩容 1 个 Pod），旧演员再下场（旧 ReplicaSet 缩容 1 个），交替进行。<strong style="color:#fbbf24">maxSurge</strong> 控制「最多同时几个新演员在后台准备」，<strong style="color:#fbbf24">maxUnavailable</strong> 控制「最多几个旧演员可以不在场」。观众（用户）全程有戏看，零停机。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">⏪</div>
+    <div>
+      <strong style="color:#f87171">场景3：回滚 = 重拍</strong><br><span style="color:var(--text-secondary)">新演员上台后演砸了（新版本有 Bug），导演喊<strong style="color:#f87171">「undo！」</strong>——<code>kubectl rollout undo deploy/nginx</code>，旧演员立刻重新上场。旧 ReplicaSet 一直保留着（revisionHistoryLimit 控制保留几个版本），随时可以喊回之前的任何一个版本。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">📊</div>
+    <div>
+      <strong style="color:#a78bfa">场景4：HPA 自动扩缩 = 根据观众人数自动加座</strong><br><span style="color:var(--text-secondary)">演出太火爆，观众（流量）爆满——<strong style="color:#a78bfa">HPA</strong> 自动通知场记：「再加 5 个演员！」CPU/内存使用率飙高就自动扩容，闲下来自动缩容，不用导演操心。<code>kubectl autoscale deploy/nginx --min=2 --max=10 --cpu-percent=80</code>。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🎬</span>
+    <div class="metaphor-title">Deployment</div>
+    <div class="metaphor-desc">导演喊Action
+声明期望状态</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">🎞️</span>
+    <div class="metaphor-title">滚动更新</div>
+    <div class="metaphor-desc">一幕一幕拍
+maxSurge/maxUnavailable</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">⏪</span>
+    <div class="metaphor-title">回滚</div>
+    <div class="metaphor-desc">undo重拍
+旧RS保留随时切回</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">📊</span>
+    <div class="metaphor-title">HPA</div>
+    <div class="metaphor-desc">根据观众加座
+CPU/内存自动扩缩</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>Deployment 是 K8s 中管理无状态应用的工作负载控制器，提供声明式更新能力。它通过控制 ReplicaSet 来间接管理 Pod，实现滚动更新、版本回滚、水平扩缩等功能。是生产环境最常用的工作负载类型。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>Pod 本身是"易失的"——挂了不会自动恢复，需要控制器保证副本数。Deployment 比直接管理 ReplicaSet 更高级：支持版本记录、暂停/恢复更新、自动回滚。对开发者来说只需声明"我要 3 个 nginx:1.21 的副本"即可。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>解决"如何零停机更新应用"的核心问题。通过滚动更新机制，新版本 Pod 逐步替换旧版本 Pod，保证在更新过程中始终有一定数量的可用副本处理流量。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>Deployment → 创建/更新 ReplicaSet → ReplicaSet 确保 Pod 副本数 = spec.replicas。滚动更新时：创建一个新 ReplicaSet 逐步扩容，旧 ReplicaSet 逐步缩容。参数 maxSurge（最多超出多少 Pod，默认 25%）和 maxUnavailable（最多多少不可用 Pod，默认 25%）控制滚动速度。更新后旧 ReplicaSet 保留（副本数 0）用于回滚。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① 只适合无状态应用（StatefulSet 管理有状态应用）；② 滚动更新期间新旧版本可能同时处理流量（需考虑兼容性）；③ 回滚只回滚 Pod 模板，不回滚外部依赖（数据库 schema 等）；④ 大量 Deployment 时 ReplicaSet 会积累（需配置 revisionHistoryLimit）；⑤ 不适合需要有序更新和稳定网络标识的场景。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① 有状态应用用 StatefulSet；② 滚动更新时做好 API 版本兼容（新旧共存）；③ 数据库 migration 单独管理，配合 Deployment 版本；④ 设置 <code>revisionHistoryLimit: 5</code> 限制保留的 ReplicaSet 数量；⑤ 结合 readiness probe 确保新 Pod 就绪后才接入流量。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p><code>kubectl set image deploy/nginx nginx=nginx:1.22</code> 触发滚动更新 → <code>kubectl rollout status deploy/nginx</code> 查看状态 → 发现问题用 <code>kubectl rollout undo deploy/nginx</code> 一键回滚。发布策略：开发环境用 Recreate（更快），生产环境用 RollingUpdate + readiness probe。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"Deployment 是 K8s 管理无状态应用的控制器，通过 ReplicaSet 保证 Pod 副本数。滚动更新是核心能力——创建新 ReplicaSet 逐步扩容、旧 ReplicaSet 逐步缩容，由 maxSurge（最多超几个）和 maxUnavailable（最多少几个）控制速度。更新失败能一键回滚。记住层级：Deployment → ReplicaSet → Pod，Deployment 是导演，ReplicaSet 是场记，Pod 是演员。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"Deployment 直接管理 Pod"（中间有 ReplicaSet）</li>
+        <li>"滚动更新和蓝绿部署一样"（蓝绿是一次切，滚动是逐步换）</li>
+        <li>"maxSurge=0 最安全"（可能永远完成不了，新 Pod 无法创建）</li>
+        <li>"回滚什么都能回"（只回滚 Pod 模板，不回滚数据库等外部状态）</li>
+        <li>"ReplicaSet 更新后旧 RS 就删了"（保留到 revisionHistoryLimit 用于回滚）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"Deployment → 创建/更新 ReplicaSet → ReplicaSet 管理 Pod"</li>
+        <li>"滚动更新 = 逐步替换（新起一个删一个），蓝绿 = 起完一批再切流量"</li>
+        <li>"maxSurge 控制新建速度，maxUnavailable 控制不可用容忍度"</li>
+        <li>"回滚仅回滚 Pod 模板，数据库迁移需单独处理"</li>
+        <li>"旧 ReplicaSet 保留（副本调 0），可通过 <code>--to-revision</code> 回滚到指定版本"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">☸️ Deployment</div>
+    <div class="branch">├─ <span class="arrow">→</span> Deployment ↔ ReplicaSet 关系</div>
+    <div class="leaf">│  ├─ Deployment 是更上层抽象</div>
+    <div class="leaf">│  ├─ 每个版本对应一个 ReplicaSet</div>
+    <div class="leaf">│  └─ 层级：Deployment → ReplicaSet → Pod</div>
+    <div class="branch">├─ <span class="arrow">→</span> 滚动更新机制</div>
+    <div class="leaf">│  ├─ maxSurge：超出 replicas 的 Pod 数（默认 25%）</div>
+    <div class="leaf">│  ├─ maxUnavailable：最多不可用 Pod 数（默认 25%）</div>
+    <div class="leaf">│  ├─ 新 RS 扩容 + 旧 RS 缩容，交替进行</div>
+    <div class="leaf">│  └─ readiness gate：新 Pod 就绪才计入 available</div>
+    <div class="branch">├─ <span class="arrow">→</span> 回滚</div>
+    <div class="leaf">│  ├─ <code>kubectl rollout undo deploy/xxx</code>（回滚到上一版）</div>
+    <div class="leaf">│  ├─ <code>kubectl rollout undo deploy/xxx --to-revision=2</code>（指定版本）</div>
+    <div class="leaf">│  ├─ <code>kubectl rollout history deploy/xxx</code>（查看版本历史）</div>
+    <div class="leaf">│  └─ revisionHistoryLimit 控制保留数量</div>
+    <div class="branch">├─ <span class="arrow">→</span> 更新策略对比</div>
+    <div class="leaf">│  ├─ RollingUpdate：逐步替换（零停机，默认）</div>
+    <div class="leaf">│  ├─ Recreate：先全删再全建（有停机，但干净）</div>
+    <div class="leaf">│  ├─ 蓝绿部署：新版本全量部署后切流量</div>
+    <div class="leaf">│  └─ 金丝雀发布：少量新版本验证后再全量</div>
+    <div class="branch">└─ <span class="arrow">→</span> HPA 水平扩缩</div>
+    <div class="leaf">   ├─ 基于 CPU/内存/自定义指标自动调整 replicas</div>
+    <div class="leaf">   ├─ <code>kubectl autoscale deploy/nginx --min=2 --max=10 --cpu-percent=80</code></div>
+    <div class="leaf">   └─ HPA 修改 Deployment 的 replicas → ReplicaSet 执行</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"Deployment = 电影导演：喊'Action'开始（声明期望状态），ReplicaSet = 场记保证每场戏到位，滚动更新 = 一幕一幕拍不打乱（逐步替换）"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 画出 Deployment → ReplicaSet → Pod 的三层关系图</li>
+    <li><input type="checkbox"> 解释滚动更新的流程（新 RS 扩容 + 旧 RS 缩容）</li>
+    <li><input type="checkbox"> 说明 maxSurge 和 maxUnavailable 的含义及默认值</li>
+    <li><input type="checkbox"> 演示回滚的完整命令（undo / history / --to-revision）</li>
+    <li><input type="checkbox"> 对比 RollingUpdate、Recreate、蓝绿、金丝雀的区别</li>
+    <li><input type="checkbox"> 说明 readiness probe 在滚动更新中的关键作用</li>
+    <li><input type="checkbox"> 解释 HPA 如何与 Deployment 配合实现自动扩缩</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

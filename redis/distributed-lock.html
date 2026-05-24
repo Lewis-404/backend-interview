@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分布式锁实现 — Redis 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+/* ===== Animation Keyframes ===== */
+@keyframes scaleIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes fadeUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes fadeLeft { from { transform: translateX(-40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes fadeRight { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.anim-scale, .anim-fade-up, .anim-fade-left, .anim-fade-right { opacity: 0; }
+.anim-scale.visible { animation: scaleIn 0.6s ease-out forwards; }
+.anim-fade-up.visible { animation: fadeUp 0.65s ease-out forwards; }
+.anim-fade-left.visible { animation: fadeLeft 0.6s ease-out forwards; }
+.anim-fade-right.visible { animation: fadeRight 0.6s ease-out forwards; }
+.delay-100.visible { animation-delay: 0.1s; } .delay-200.visible { animation-delay: 0.2s; }
+.delay-300.visible { animation-delay: 0.3s; } .delay-400.visible { animation-delay: 0.4s; }
+.delay-500.visible { animation-delay: 0.5s; } .delay-600.visible { animation-delay: 0.6s; }
+
+/* ===== Metaphor Section ===== */
+.metaphor-section { background: linear-gradient(135deg, #fef9e7 0%, #fff8e1 100%); border: 1px solid #f9e79f; border-radius: 16px; padding: 32px 28px; margin: 28px 0; position: relative; overflow: hidden; }
+.metaphor-section::before { content: "🏮"; position: absolute; top: 16px; right: 20px; font-size: 48px; opacity: 0.15; }
+.metaphor-title { font-size: 1.25em; font-weight: 700; color: #d4a017; margin-bottom: 6px; }
+.metaphor-subtitle { font-size: 0.88em; color: #8b7355; margin-bottom: 20px; }
+.story-block { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+@media (max-width: 768px) { .story-block { grid-template-columns: 1fr; } }
+.story-card { background: #fff; border-radius: 12px; padding: 18px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid #f39c12; }
+.story-card h5 { margin: 0 0 8px; font-size: 1em; color: #e67e22; display: flex; align-items: center; gap: 6px; }
+.story-card h5 .icon { font-size: 1.3em; }
+.story-card p { margin: 0; font-size: 0.9em; color: #555; line-height: 1.6; }
+.metaphor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.metaphor-card { background: #fff; border-radius: 10px; padding: 14px 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); text-align: center; border-top: 3px solid #f39c12; }
+.metaphor-card .m-icon { font-size: 1.8em; margin-bottom: 6px; }
+.metaphor-card .m-term { font-weight: 700; font-size: 0.85em; color: #d4a017; margin-bottom: 4px; }
+.metaphor-card .m-desc { font-size: 0.8em; color: #777; }
+</style>
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="index.html" class="redis-link active">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+<div class="interview-header">
+  <div class="breadcrumb"><a href="index.html">Redis</a> / 应用场景</div>
+  <h1>#8 分布式锁实现</h1>
+  <div class="meta">
+    <span>📚 难度：高级</span>
+    <span>⏱️ 建议作答：4-5 分钟</span>
+    <span>🔖 标签：分布式锁 / SETNX / RedLock / Lua</span>
+  </div>
+</div>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">单Redis分布式锁：<strong>SET key value NX PX ttl</strong>（原子加锁+设超时） + <strong>Lua脚本释放</strong>（判断value防误删）。<strong>Redisson看门狗</strong>自动续期解决业务超时问题。多节点<strong>RedLock</strong>（向多数独立Redis实例成功加锁）提供更高可靠性，但有学术争议（Martin Kleppmann批判），一般<strong>不建议使用</strong>，更推荐ZooKeeper方案或单Redis+合理超时。</div>
+</div>
+
+<section class="metaphor-section anim-fade-up">
+  <div class="metaphor-title">🏮 生活类比：公共厕所门锁</div>
+  <div class="metaphor-subtitle">把技术概念映射到「上厕所」的日常场景，秒懂分布式锁</div>
+  <div class="story-block">
+    <div class="story-card anim-fade-left delay-200">
+      <h5><span class="icon">🚪</span> SET NX PX = 关门+定时器</h5>
+      <p>你走到厕所门口，如果门开着（锁不存在），你就进去、锁门、同时设定闹钟（NX + PX）。注意：关门和设定闹钟必须是一口气完成的原子操作——不能先关门再调闹钟，否则万一你关门后晕倒了，闹钟没设，厕所永远被锁。</p>
+    </div>
+    <div class="story-card anim-fade-right delay-400">
+      <h5><span class="icon">🔑</span> Lua 释放 = 确认身份再开门</h5>
+      <p>你上完厕所出来开门前，先确认「是我自己锁的门」（判断 client_id 是否匹配）。如果不确认身份直接开门——万一你上太久闹钟响了、别人锁门进去了，你把别人的门打开了，那就尴尬了。</p>
+    </div>
+    <div class="story-card anim-fade-left delay-600">
+      <h5><span class="icon">🐕</span> 看门狗 = 自动续时</h5>
+      <p>你在厕所里待着，看门狗每隔一段时间就喊一嗓子：「你还在吗？在的话我再给你续 30 秒！」防止闹钟在你还没完事时就响了（看门狗自动续期）。你出来后锁自动释放，看门狗下班。</p>
+    </div>
+  </div>
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <div class="m-icon">🚪</div>
+      <div class="m-term">SET NX</div>
+      <div class="m-desc">关门+定时</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <div class="m-icon">🐕</div>
+      <div class="m-term">看门狗</div>
+      <div class="m-desc">自动续时</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <div class="m-icon">🔑</div>
+      <div class="m-term">Lua释放</div>
+      <div class="m-desc">确认身份再开门</div>
+    </div>
+  </div>
+</section>
+
+
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>是什么（定义）</h4>
+      <p>分布式锁是控制分布式系统中多个进程（或线程）对共享资源互斥访问的机制。Redis分布式锁利用Redis的单线程+原子命令特性，用SETNX（SET if Not eXists）实现抢锁，用Lua脚本保证释放锁的原子性。</p>
+    </div>
+    <div class="step">
+      <h4>为什么需要（应用场景）</h4>
+      <p>① 避免重复执行（如定时任务在多实例部署时只执行一次）。② 库存扣减防超卖（虽然更推荐用Redis原子操作或Lua）。③ 分布式ID生成器避免冲突。④ 资源竞争（如多个实例同时操作同一文件）。</p>
+    </div>
+    <div class="step">
+      <h4>解决什么问题</h4>
+      <p>单机锁（synchronized/Lock）无法跨JVM，分布式锁提供了跨进程/跨主机的互斥机制。关键挑战：① 互斥性（同一时刻只有一个客户端持有锁）② 防死锁（持有锁的客户端崩溃后锁能被释放）③ 防误删（A不能释放B持有的锁）④ 高可用（锁服务本身不能单点故障）。</p>
+    </div>
+    <div class="step">
+      <h4>原理（单Redis实现）</h4>
+      <p><strong>加锁（正确姿势）：</strong><code>SET lock_key client_id NX PX 30000</code> — 原子操作：只有当Key不存在时才能SET成功，同时设置30秒过期。错误做法：先SETNX再EXPIRE（非原子，如果SETNX之后进程崩溃，锁永远不会过期→死锁）。</p>
+      <p><strong>释放锁（Lua脚本）：</strong></p>
+      <div class="code-block">
+<span class="keyword">if</span> <span class="func">redis.call</span>(<span class="string">"get"</span>, KEYS[<span class="string">1</span>]) == ARGV[<span class="string">1</span>] <span class="keyword">then</span><br/>
+&nbsp;&nbsp;<span class="keyword">return</span> <span class="func">redis.call</span>(<span class="string">"del"</span>, KEYS[<span class="string">1</span>])<br/>
+<span class="keyword">else</span><br/>
+&nbsp;&nbsp;<span class="keyword">return</span> <span class="string">0</span><br/>
+<span class="keyword">end</span>
+      </div>
+      <p>必须用Lua保证"判断+删除"原子性。错误做法：先GET判断value再DEL——中间可能被其他线程插入，导致释放了别人的锁。</p>
+      <p><strong>锁续期（看门狗Watchdog）：</strong>Redisson的看门狗每10秒检查锁是否还被当前线程持有，如果是则自动延长锁的过期时间（默认30秒）。防止业务执行时间超过锁TTL导致锁被提前释放。</p>
+    </div>
+    <div class="step">
+      <h4>缺点与权衡</h4>
+      <p>① 单Redis方案有单点故障风险（Redis挂了锁服务不可用）。② 主从架构下主节点宕机后锁可能丢失（异步复制，从节点升主时可能缺少锁记录）。③ 业务执行超时时即使有看门狗也可能需要调整TTL策略。④ 性能开销：每次加锁/释放都需要一次Redis网络往返（1-2ms）。</p>
+    </div>
+    <div class="step">
+      <h4>RedLock及其争议</h4>
+      <p><strong>RedLock算法（推荐跳过此方案）：</strong>向N个独立Redis实例（非主从，各为单点）顺序尝试加锁，如果超过半数（N/2+1）成功且在锁有效期TTL内完成，则认为获取锁成功。实际有效时间 = TTL - 获取锁耗时 - 时钟漂移补偿。</p>
+      <p><strong>Martin Kleppmann的批判：</strong>① RedLock依赖时钟同步假设，但分布式系统中时钟不可靠（时钟跳跃、GC停顿）。② 客户端获取锁后GC停顿超TTL，锁自动过期，另一个客户端获取锁，造成两个客户端同时持有锁。③ fencing token方案更可靠：锁服务返回递增token，资源层检查token拒绝旧请求。④ 结论：如果只是效率优化（减少重复工作），单Redis够了；如果需要绝对正确性，用ZooKeeper（CP系统）。</p>
+    </div>
+    <div class="step">
+      <h4>落地建议</h4>
+      <p><strong>实用选型指南：</strong>① 99%场景：用Redisson的RLock，自动处理看门狗+可重入+公平锁。② 需要绝对正确性（如金融账务）：放弃Redis，用ZooKeeper临时顺序节点+Watcher。③ 高并发+允许偶发冲突：单Redis+合理TTL+监控。④ 业务执行时间不确定：看门狗 + 合理的锁超时上限。⑤ 关键代码段：用fencing token机制在业务层做幂等防护。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⚡</div>
+    <div>
+      <div class="timer-label">面试官："Redis怎么实现分布式锁？"</div>
+      <div class="timer-text">"加锁用SET key value NX PX 30000，一个原子命令同时完成抢锁和设超时。释放用Lua脚本先判断value是不是自己设的client_id，是才DEL，防止误删别人的锁。Redisson封装了看门狗自动续期，防止业务执行超时锁提前释放。至于RedLock多Redis实例方案有争议——依赖时钟同步，可能GC停顿导致两个客户端同时持有锁。一般用Redisson就够了，绝对正确性场景用ZooKeeper。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 面试中注意 — 错误 vs 正确</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <p>"SETNX + EXPIRE就行了"</p>
+      <p>"释放锁直接DEL就行"</p>
+      <p>"RedLock就是最好的分布式锁方案"</p>
+      <p>"分布式锁就是synchronized用Redis实现"</p>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <p>"SETNX + EXPIRE分两步执行<strong>不是原子操作</strong>！如果SETNX成功后进程崩溃，EXPIRE没执行，锁永远不会释放——死锁。<strong>必须用 SET key value NX PX ttl 一条命令</strong>"</p>
+      <p>"直接DEL会<strong>误删别人的锁</strong>：A的锁超时释放→B加锁→A执行完去DEL→B的锁被A误删。必须用<strong>Lua脚本判断value</strong>确认是自己加的锁才DEL"</p>
+      <p>"RedLock有严重学术争议，Martin Kleppmann专门写文章批判过。依赖时钟同步假设在分布式系统中不可靠。面试表达：<strong>了解RedLock但一般不用</strong>"</p>
+      <p>"分布式锁的挑战远超单机锁：网络分区、时钟漂移、GC停顿、进程崩溃都要考虑。单机synchronized只保护JVM内互斥，跨进程完全无效"</p>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">分布式锁</div>
+    <div class="branch">├─ 单Redis实现
+      <div class="leaf">├─ 正确加锁：SET key client_uuid NX PX 30000（一条命令，原子性）</div>
+      <div class="leaf">├─ 正确释放：Lua脚本 if get(key)==client_uuid then del(key) end（判断+删除原子性）</div>
+      <div class="leaf">├─ client_uuid建议：UUID或机器ID+线程ID，保证唯一性</div>
+      <div class="leaf">└─ PX时间设置：根据业务最大执行时间，留20-50%余量</div>
+    </div>
+    <div class="branch">├─ Redisson看门狗
+      <div class="leaf">├─ 原理：加锁时不设TTL（或看门狗覆盖），后台定时任务每10秒续期</div>
+      <div class="leaf">├─ 触发：锁持有期间自动续期，锁释放时停止续期</div>
+      <div class="leaf">├─ 局限：如果Redisson客户端崩溃/网络断开，续期停止，锁最多30秒自动释放</div>
+      <div class="leaf">└─ 可重入：Redisson用hash结构实现（field=线程ID，value=重入次数）</div>
+    </div>
+    <div class="branch">├─ RedLock（了解即可）
+      <div class="leaf">├─ 要求N个独立Redis实例（N≥3奇数，不能是主从）</div>
+      <div class="leaf">├─ 客户端顺序向每个实例加锁（SET NX PX），超时时间远小于锁TTL</div>
+      <div class="leaf">├─ 超过N/2+1实例成功→获得锁；否则释放已获得的锁重试</div>
+      <div class="leaf">└─ 缺点：依赖时钟同步、GC停顿导致锁超时、复杂度高</div>
+    </div>
+    <div class="branch">├─ ZooKeeper方案对比
+      <div class="leaf">├─ 临时顺序节点：每个客户端创建znode，序号最小的获得锁</div>
+      <div class="leaf">├─ Watcher机制：前一个节点删除时通知下一个客户端</div>
+      <div class="leaf">├─ 优势：CP系统（一致性强）、自带会话超时（客户端崩溃自动释放）</div>
+      <div class="leaf">└─ 劣势：性能不如Redis（ZAB协议开销）、运维更复杂</div>
+    </div>
+    <div class="branch">└─ 选型决策树
+      <div class="leaf">├─ 性能敏感+非绝对正确 → Redisson RLock（单Redis）</div>
+      <div class="leaf">├─ 绝对正确（金融/账务）→ ZooKeeper临时顺序节点</div>
+      <div class="leaf">├─ 已有etcd/consul基础设施 → 用它们的分布式锁API</div>
+      <div class="leaf">└─ 简单场景（防重复执行定时任务）→ SET NX PX + Lua释放 足够</div>
+    </div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"分布式锁像公共厕所的门锁：SET NX PX = 关门+设定时器防止厕所蹲太久（原子操作，不能先关门再调定时器）。释放锁 = 确认是自己进去的（判断client_id）再开门（Lua原子）。看门狗 = 如果你还在里面（业务还在执行），自动续时防止被赶出去。RedLock = 同时在3个厕所锁门，多数锁上才放心——但万一你蹲着蹲着睡了一觉（GC停顿），定时器到了别人也能进去。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检 Checklist</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 能写出正确的加锁Redis命令：SET key value NX PX ttl</li>
+    <li><input type="checkbox"> 能写出释放锁的Lua脚本（判断value + DEL）</li>
+    <li><input type="checkbox"> 能解释为什么SETNX+EXPIRE两步是错误的（非原子）</li>
+    <li><input type="checkbox"> 能解释直接用DEL释放锁的风险（误删别人的锁）</li>
+    <li><input type="checkbox"> 能描述Redisson看门狗的工作原理（定时续期）</li>
+    <li><input type="checkbox"> 能说出RedLock的至少两个缺陷（时钟依赖、GC停顿）</li>
+    <li><input type="checkbox"> 能对比Redis和ZooKeeper分布式锁方案的优劣</li>
+    <li><input type="checkbox"> 能给出不同场景的分布式锁选型建议</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <a href="cluster.html">← 上一题：Cluster集群原理</a> &nbsp;|&nbsp;
+  <a href="bigkey.html">下一题：BigKey与热Key问题 →</a>
+</div>
+
+</div>
+
+<script>
+(function(){const o=new IntersectionObserver((e)=>{e.forEach(e=>{if(e.isIntersecting)e.target.classList.add("visible")})},{threshold:0.1,rootMargin:"0px 0px -40px 0px"});document.querySelectorAll(".anim-scale,.anim-fade-up,.anim-fade-left,.anim-fade-right").forEach(e=>o.observe(e))})();
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redo Log & Undo Log & Binlog — MySQL面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="index.html" class="mysql-link active">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb">
+    <a href="../index.html">首页</a> &raquo;
+    <a href="index.html">MySQL</a> &raquo;
+    <span>#09</span>
+  </div>
+  <h1>Redo Log & Undo Log & Binlog</h1>
+  <span class="q-number">TOP 09 ⭐⭐⭐⭐⭐</span>
+</header>
+
+<div class="summary-box anim-scale">
+  <p class="big-conclusion">Redo Log(物理日志,循环写)保证crash recovery；Undo Log(逻辑日志)提供回滚和MVCC；Binlog(SQL层,追加写)用于主从复制和数据恢复。两阶段提交保证Redo Log和Binlog一致性</p>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 三种记录仪</div>
+  <div class="story-title">开车出事了怎么办？三种记录仪告诉你答案</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">📹</div>
+    <div><strong style="color:var(--accent)">场景：Redo Log = 行车记录仪（事故回放）</strong><br><span style="color:var(--text-secondary)">记录仪循环录制，覆盖旧画面。出事故(crash)后回放最近一段——Redo Log也是循环写，crash后从checkpoint回放到最后就恢复了所有已提交事务</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🔙</div>
+    <div><strong style="color:var(--accent)">场景：Undo Log = 倒车影像（倒回去）</strong><br><span style="color:var(--text-secondary)">倒车影像让你看到"之前的位置"——Undo Log记录修改前的值。倒车(回滚)时，按影像就能精确回到之前的状态</span></div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🗺️</div>
+    <div><strong style="color:var(--accent)">场景：Binlog = 路书（复制路线给同伴）</strong><br><span style="color:var(--text-secondary)">你记录整个行程路线(路书)，后面的车队(从库)跟着路书走——Binlog追加写、完整记录所有变更，主从复制就靠它</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-600">
+    <div class="scene-icon">🤝</div>
+    <div><strong style="color:var(--accent)">场景：两阶段提交 = 两个记录仪必须都确认</strong><br><span style="color:var(--text-secondary)">出发前先确认行车记录仪(Redo)和路书(Binlog)都开着——Redo prepare→写Binlog→Redo commit。任一步crash都能判断状态，保证两边一致</span></div>
+  </div>
+</section>
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100"><span class="metaphor-emoji">📹</span><div class="metaphor-title">Redo = 行车记录</div><div class="metaphor-desc">循环录制→事故回放→crash recovery</div></div>
+  <div class="metaphor-card anim-fade-up delay-200"><span class="metaphor-emoji">🔙</span><div class="metaphor-title">Undo = 倒车影像</div><div class="metaphor-desc">看到之前位置→精确回退→事务回滚</div></div>
+  <div class="metaphor-card anim-fade-up delay-300"><span class="metaphor-emoji">🗺️</span><div class="metaphor-title">Binlog = 路书</div><div class="metaphor-desc">完整路线→传给后车→主从复制+数据恢复</div></div>
+  <div class="metaphor-card anim-fade-up delay-400"><span class="metaphor-emoji">🤝</span><div class="metaphor-title">2PC = 双确认</div><div class="metaphor-desc">两个记录仪都确认才开车，保证数据一致</div></div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step"><h4>Step 1 — 是什么</h4><p>MySQL三大日志：Redo Log(InnoDB引擎层,物理日志)→保障持久性；Undo Log(InnoDB引擎层,逻辑日志)→保障原子性+MVCC版本链；Binlog(Server层,逻辑日志)→主从复制+数据恢复</p></div>
+    <div class="step"><h4>Step 2 — 为什么</h4><p>没有Redo Log→crash后已提交事务丢失；没有Undo Log→事务无法回滚、没有MVCC版本链；没有Binlog→无法主从复制、无法做基于时间点的数据恢复</p></div>
+    <div class="step"><h4>Step 3 — 解决的核心问题</h4><p>Redo：崩溃恢复(crash recovery)，WAL机制先写日志再写磁盘。Undo：回滚未提交事务，构建MVCC历史版本链。Binlog：主从同步、数据备份恢复(point-in-time recovery)</p></div>
+    <div class="step"><h4>Step 4 — 核心原理</h4><p>Redo循环写(ib_logfile0/1,大小固定)，记录"哪个数据页的哪个偏移量改了什么"。Undo记录修改前的值。Binlog追加写(mysql-bin.000001)，记录SQL语句或行变更</p></div>
+    <div class="step"><h4>Step 5 — 缺点/局限</h4><p>Redo循环写→文件大小固定→长事务可能导致Redo写满阻塞；Undo占用表空间且长事务阻止清理；Binlog追加写→文件会不断增长需定期清理</p></div>
+    <div class="step"><h4>Step 6 — 如何解决</h4><p>Redo：适当增大innodb_log_file_size；Undo：避免长事务、定期purge；Binlog：设置expire_logs_days自动清理（8.0+用binlog_expire_logs_seconds）</p></div>
+    <div class="step"><h4>Step 7 — 实际落地</h4><p>核心参数：innodb_log_file_size(默认48M,建议512M-2G)、innodb_flush_log_at_trx_commit(1=每次刷盘)、sync_binlog(1=每次刷盘)、binlog_format(ROW)</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">MySQL有三本账。第一本Redo Log：循环写、物理日志，记录"改了哪个页的哪几个字节"。事务提交时先写Redo再返回成功(WAL)，crash后从checkpoint重放到最后来恢复。第二本Undo Log：记录"改之前的数据什么样"，给回滚和MVCC用——每个行的roll_ptr指向上一个版本的Undo记录。第三本Binlog：Server层、追加写、逻辑日志，记录SQL语句或行变更，给从库复制和数据恢复用。关键设计：两阶段提交——Redo prepare→写Binlog→Redo commit，保证两边日志一致。</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before"><h4>❌ 错误表达</h4>
+      <ul>
+        <li>"Redo Log和Binlog是一样的" — Redo是物理日志(引擎层,循环写)，Binlog是逻辑日志(Server层,追加写)，完全不同的两层</li>
+        <li>"Undo Log就是用来回滚的" — 只说了一半，Undo Log还是MVCC版本链的来源</li>
+        <li>"crash后靠Binlog恢复" — Binlog是Server层的，crash recovery主要靠Redo Log的checkpoint+重放</li>
+        <li>"innodb_flush_log_at_trx_commit=0性能最好" — 性能最好但最不安全，crash可能丢失1秒的事务</li>
+      </ul></div>
+    <div class="col after"><h4>✅ 正确表达</h4>
+      <ul>
+        <li>"<strong>Redo Log=物理日志+循环写+引擎层</strong>；<strong>Binlog=逻辑日志+追加写+Server层</strong>——记住这三组对立关系"</li>
+        <li>"两阶段提交：<strong>Redo prepare → 写Binlog → Redo commit</strong>。确保任何一个阶段crash都能通过日志判断事务状态并正确恢复"</li>
+        <li>"<strong>WAL</strong>(Write-Ahead Logging)：先写日志再写数据页——这个设计让随机写变成顺序写(日志是顺序追加的)，大幅提升写性能"</li>
+        <li>"Binlog三种格式：<strong>STATEMENT</strong>(记录SQL,可能主从不一致)、<strong>ROW</strong>(记录行变更,精确但日志大)、<strong>MIXED</strong>(混合,默认推荐ROW)"</li>
+      </ul></div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">MySQL 三大日志</div>
+    <div class="branch">├─ <span class="arrow">→</span> Redo Log 怎么实现 crash recovery？</div>
+    <div class="leaf">│  └─ WAL机制。Checkpoint记录已经刷盘的数据页LSN。Crash后从最近checkpoint开始重放Redo Log到末尾。已提交事务重做(保证持久性)，未提交的依赖Undo回滚</div>
+    <div class="branch">├─ <span class="arrow">→</span> Undo Log 和 MVCC 的关系？</div>
+    <div class="leaf">│  └─ Undo Log保存每次修改前的旧值→行记录roll_ptr指向Undo中的旧版本→形成版本链。MVCC读时沿着版本链找对当前ReadView可见的版本</div>
+    <div class="branch">├─ <span class="arrow">→</span> Binlog 三种格式的区别？</div>
+    <div class="leaf">│  └─ STATEMENT:记录SQL,日志小但可能有主从不一致(UUID/NOW等)。ROW:记录每行变更,日志大但精确可靠。MIXED:默认STATEMENT,不确定时切ROW。生产推荐ROW</div>
+    <div class="branch">├─ <span class="arrow">→</span> 两阶段提交怎么保证一致性？</div>
+    <div class="leaf">│  └─ Prepare阶段:Redo写prepare标记→第二阶段:写Binlog→Commit阶段:Redo写commit标记。Crash时:有commit标记=事务已提交(可重放);无commit但有Binlog=从库有但主库未提交,需要补偿</div>
+    <div class="branch">├─ <span class="arrow">→</span> 为什么需要两阶段提交？</div>
+    <div class="leaf">│  └─ Redo Log和Binlog是两个独立的日志系统。不用两阶段→可能Redo提交了但Binlog没写→主库有数据但从库没有→主从不一致。两阶段保证"要么都写要么都不写"</div>
+    <div class="branch">├─ <span class="arrow">→</span> innodb_flush_log_at_trx_commit 参数含义？</div>
+    <div class="leaf">│  └─ 0:每秒刷盘(性能最好,丢1秒)。1:每次提交刷盘(最安全,性能最差)。2:每次提交写OS缓存+每秒刷盘(折中,OS crash丢数据)。生产建议1+SSD+组提交优化</div>
+    <div class="branch">└─ <span class="arrow">→</span> Redo Log 写满了怎么办？</div>
+    <div class="leaf">   └─ Redo是循环写。写满→触发checkpoint→把脏页刷盘→释放Redo空间。如果脏页刷盘速度跟不上写入→Redo满→数据库阻塞所有写操作(异步刷盘变同步等checkpoint)</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text"><strong>Redo Log=行车记录仪</strong>（记录已经发生的事，事故后回放还原现场）；<strong>Undo Log=倒车影像</strong>（告诉你刚才在什么位置，错了可以退回去）；<strong>Binlog=路书</strong>（完整记录路线，复制一份给后面的车队跟着走）</div>
+  <div class="hook-text" style="margin-top:0.8rem;font-size:0.9rem;opacity:0.85">Redo — 物理日志+循环写+引擎层 | Undo — 逻辑日志+回滚+MVCC链 | Binlog — 逻辑日志+追加写+Server层 | 2PC — 两阶段提交保证一致性</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+<li><input type="checkbox"> 能用一个表格列出三种日志的层次、写入方式、用途、格式</li>
+    <li><input type="checkbox"> 能画出两阶段提交的时间线：Redo prepare → Binlog → Redo commit</li>
+    <li><input type="checkbox"> 能解释 WAL 为什么能提升性能——随机写变顺序写</li>
+    <li><input type="checkbox"> 能说明 crash recovery 的恢复流程（从checkpoint开始重放Redo）</li>
+    <li><input type="checkbox"> 能解释为什么生产环境推荐 binlog_format=ROW</li>
+    <li><input type="checkbox"> 能说出 innodb_flush_log_at_trx_commit 三个值的权衡</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

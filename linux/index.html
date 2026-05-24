@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linux 面试专题 — Go 后端面试训练营</title><link rel="stylesheet" href="../css/style.css">
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a><a href="../mysql/index.html" class="mysql-link">MySQL</a><a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="index.html" class="linux-link active">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a><a href="../docker/index.html" class="docker-link">Docker</a><a href="../k8s/index.html" class="k8s-link">K8s</a><a href="../cicd/index.html" class="cicd-link">CI/CD</a><a href="../system-design/index.html" class="sd-link">系统设计</a><a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+<div class="hero"><div class="icon">🐧</div><h1>Linux 面试专题</h1><p class="subtitle">top · ps · grep · awk · netstat · lsof · tail · shell</p></div>
+<div class="summary-box"><div class="label">🎯 Linux 面试核心</div><div class="one-liner" style="font-size:18px">排查三板斧(top看系统 + ps看进程 + tail|grep|awk查日志) + 网络诊断(netstat/lsof) = 运维面试标配</div></div>
+<div class="cat-header"><span class="cat-icon">🐧</span><h2>8 个核心主题</h2><span class="cat-tag docker-tag">第一梯队 P0</span></div>
+<div class="card-grid">
+  <a href="top.html" class="card"><div class="card-num">LX-01</div><h3>top 命令详解</h3><p>load average · CPU · 内存 · 进程状态</p></a>
+  <a href="ps.html" class="card"><div class="card-num">LX-02</div><h3>ps 进程管理</h3><p>ps aux vs ps -ef · R/S/D/Z状态</p></a>
+  <a href="grep.html" class="card"><div class="card-num">LX-03</div><h3>grep 文本搜索</h3><p>正则匹配 · 上下文 · 管道组合</p></a>
+  <a href="awk.html" class="card"><div class="card-num">LX-04</div><h3>awk 文本处理</h3><p>列操作 · 条件过滤 · 统计计算</p></a>
+  <a href="netstat.html" class="card"><div class="card-num">LX-05</div><h3>netstat/ss 网络诊断</h3><p>连接状态 · TIME_WAIT · CLOSE_WAIT</p></a>
+  <a href="lsof.html" class="card"><div class="card-num">LX-06</div><h3>lsof 文件描述符</h3><p>打开文件/端口/连接 · fd泄漏</p></a>
+  <a href="tail.html" class="card"><div class="card-num">LX-07</div><h3>tail & 日志排查</h3><p>tail -f · 日志切割 · logrotate</p></a>
+  <a href="shell.html" class="card"><div class="card-num">LX-08</div><h3>Shell 脚本实战</h3><p>变量/循环/函数 · set -e · 实战脚本</p></a>
+</div>
+<div class="page-footer">来财出品 · Go 后端面试训练营 · 2026.05.24</div>
+</div>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body></html>

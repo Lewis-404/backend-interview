@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ps 进程管理 — Linux 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link active">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+  <div class="interview-header">
+    <div class="breadcrumb"><a href="../linux/index.html">Linux</a> / ps 进程管理</div>
+    <h1>ps — 进程快照查看工具</h1>
+    <div class="meta"><span>编号：LINUX-02</span><span>难度：⭐⭐</span><span>频率：🔥🔥🔥🔥</span></div>
+  </div>
+
+  <div class="summary-box anim-scale">
+    <div class="label">💡 一句话结论</div>
+    <div class="one-liner">ps（process status）查看进程快照。ps aux（BSD 风格）显示所有进程含 CPU/内存/RSS/状态；ps -ef（Unix 风格）含 PID/PPID。进程状态：R/S/D/Z/T；PPID=0 为 init 进程；VSZ 虚拟内存 > RSS 物理内存。</div>
+  </div>
+
+  <!-- ====== 🎬 生活类比故事 ====== -->
+  <section class="story-section">
+    <div class="story-label">🎬 生活类比 — ps = 给进程拍全家福</div>
+    <div class="story-title">用「拍全家福」看懂 ps 命令</div>
+
+    <div class="story-scene anim-fade-left">
+      <div class="scene-icon">📸</div>
+      <div>
+        <strong style="color:var(--accent)">场景1：ps aux = 拍一张全家福</strong><br>
+        <span style="color:var(--text-secondary)">过年了，你架好相机喊一声"所有人看镜头"——咔嚓！<strong style="color:#fbbf24">ps aux</strong> 就是这张全家福，照片里记录了每个人（进程）的 CPU、内存、状态。ps -ef 则是拍家族关系——谁是爸爸（PPID）、谁是儿子（PID）。<strong style="color:#fbbf24">pstree</strong> 就是族谱图。</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-right delay-200">
+      <div class="scene-icon">😄</div>
+      <div>
+        <strong style="color:var(--accent)">场景2：状态码 = 每个人的表情</strong><br>
+        <span style="color:var(--text-secondary)">全家福里：<strong style="color:#fbbf24">R 状态的人在笑</strong>（正在运行）、<strong style="color:#fbbf24">S 状态的人睡着了</strong>（可中断睡眠）、<strong style="color:#f87171">D 状态的人昏迷——推都推不醒</strong>（不可中断，等 IO）、<strong style="color:#f87171">Z 状态的人已经去世了</strong>（僵尸，父进程没来认领遗体）。</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-left delay-400">
+      <div class="scene-icon">🏠</div>
+      <div>
+        <strong style="color:var(--accent)">场景3：VSZ vs RSS = 租房合同 vs 实际家具</strong><br>
+        <span style="color:var(--text-secondary)">VSZ（虚拟内存）= 你签了 200 平的租房合同（申请的全部空间）。RSS（物理内存）= 实际摆了家具的 80 平（真正占用的物理空间）。<strong style="color:#fbbf24">看内存占用要看 RSS，不要看 VSZ</strong>——就像不能凭合同面积说你多占地方。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 技术映射卡片 ====== -->
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <span class="metaphor-emoji">📸</span>
+      <div class="metaphor-title">ps aux</div>
+      <div class="metaphor-desc">拍全家福看所有人<br>%CPU %MEM RSS STAT</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <span class="metaphor-emoji">😄</span>
+      <div class="metaphor-title">R 状态</div>
+      <div class="metaphor-desc">正在笑的活跃人物<br>Running or Runnable</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <span class="metaphor-emoji">💤</span>
+      <div class="metaphor-title">S 状态</div>
+      <div class="metaphor-desc">睡着的，一叫就醒<br>可中断睡眠等事件</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-400">
+      <span class="metaphor-emoji">🧟</span>
+      <div class="metaphor-title">Z 状态</div>
+      <div class="metaphor-desc">已离世等认领<br>父进程必须 wait()</div>
+    </div>
+  </div>
+
+  <div class="section highlight anim-fade-up">
+    <h3><span class="emoji">📋</span> 7步答题模板</h3>
+    <div class="answer-template">
+      <div class="step"><h4>第一步：一句话定义</h4><p>ps（Process Status）用于显示当前系统进程的快照信息，是最基础的进程查看命令。</p></div>
+      <div class="step"><h4>第二步：两种经典用法</h4><p>ps aux（BSD 风格）：显示所有用户进程，含 %CPU、%MEM、VSZ、RSS、STAT、START、TIME、COMMAND。ps -ef（Unix 风格）：显示 PID、PPID、C、STIME、TTY、TIME、CMD。</p></div>
+      <div class="step"><h4>第三步：进程状态码</h4><p>R=Running（正在运行或在运行队列中）、S=Sleeping（可中断睡眠，等事件完成）、D=Disk Sleep（不可中断睡眠，通常等 IO，无法 kill -9）、Z=Zombie（僵尸，已结束但父进程未 wait()）、T=Stopped（被暂停，如 Ctrl+Z）。</p></div>
+      <div class="step"><h4>第四步：PID 与 PPID</h4><p>PID 是进程唯一标识；PPID 是父进程 PID。PPID=0 的是 init 进程（PID=1 的 systemd/init）。理解父子关系可以用 pstree 命令可视化。</p></div>
+      <div class="step"><h4>第五步：VSZ vs RSS</h4><p>VSZ（Virtual Size）= 进程申请的虚拟内存总量（含共享库、已分配未使用）；RSS（Resident Set Size）= 实际占用的物理内存。VSZ 通常比 RSS 大很多，不能只看 VSZ 判断内存占用。</p></div>
+      <div class="step"><h4>第六步：线程查看</h4><p>ps -T 显示线程信息、ps -L 显示 LWP（轻量级进程/线程）。Java/Go 等多线程进程排查时非常有用。</p></div>
+      <div class="step"><h4>第七步：ps 与 top 的区别</h4><p>ps 是一次性快照，像拍张照片；top 是实时动态刷新，像监控录像。ps 适合脚本/批处理，top 适合交互式排查。</p></div>
+    </div>
+  </div>
+
+  <div class="timer-box">
+    <div class="timer-icon">⏱️</div>
+    <div>
+      <div class="timer-label">60秒面试表达</div>
+      <div class="timer-text">"ps 是查看进程快照的命令，有两套经典用法：ps aux 看所有进程的资源使用，ps -ef 看进程的父子关系。进程状态很关键——R 运行中、S 可中断睡眠、D 不可中断（等 IO）、Z 僵尸。还有就是要区分 VSZ 和 RSS，前者是申请的虚拟内存，后者是实际物理占用。如果是多线程进程排查，可以用 ps -T 看线程。"</div>
+    </div>
+  </div>
+
+  <div class="section warning-zone">
+    <h3><span class="emoji">⚠️</span> 面试常见错误 vs 正确回答</h3>
+    <div class="compare">
+      <div class="col before">
+        <h4>❌ 错误回答</h4>
+        <p>"ps 就是看进程有没有在运行"<br><br>"D 状态的进程用 kill -9 就行"<br><br>"VSZ 大说明内存用得很多"</p>
+      </div>
+      <div class="col after">
+        <h4>✅ 正确回答</h4>
+        <p>"ps 能做很多：资源分析、父子追踪、线程排查、脚本监控"<br><br>"D 状态是等 IO 操作完成，kill -9 对其无效，只能等 IO 返回或重启"<br><br>"VSZ 包含共享内存和已分配未使用的虚拟空间，看内存占用用 RSS"</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim-fade-up">
+    <h3><span class="emoji">🌲</span> 追问树</h3>
+    <div class="tree">
+      <span class="node">ps</span><br>
+      <span class="branch">├─ ps aux vs ps -ef 有什么区别？</span><br>
+      <span class="leaf">→ aux 是 BSD 风格(资源类)，-ef 是 Unix 风格(父子关系类)</span><br>
+      <span class="branch">├─ 进程状态码 R / S / D / Z / T 分别是什么？</span><br>
+      <span class="leaf">→ R 运行 S 睡眠 D 不可中断(IO) Z 僵尸 T 暂停</span><br>
+      <span class="branch">├─ PID 和 PPID 有什么关系？</span><br>
+      <span class="leaf">→ PPID 是父进程 ID，PPID=0 的是 init(systemd)，用 pstree 查看树</span><br>
+      <span class="branch">├─ VSZ 和 RSS 的区别？</span><br>
+      <span class="leaf">→ VSZ=虚拟内存(含库+未用)，RSS=物理内存实际占用</span><br>
+      <span class="branch">├─ 怎么看线程？</span><br>
+      <span class="leaf">→ ps -T 或 ps -L 显示 LWP（线程 ID）</span><br>
+      <span class="branch">└─ 与 top 的区别？</span><br>
+      <span class="leaf">→ ps=快照(一次)，top=实时(持续)</span>
+    </div>
+  </div>
+
+  <div class="memory-hook">
+    <div class="hook-label">🧠 记忆钩子</div>
+    <div class="hook-text">"ps aux = 拍全家福（一张照片看所有人），top = 监控录像（持续观看）。VSZ = 你租房签了 200 平合同，RSS = 实际只摆了家具的 80 平。"</div>
+  </div>
+
+  <div class="section success-zone">
+    <h3><span class="emoji">✅</span> 自检清单</h3>
+    <ul class="check-list">
+      <li><input type="checkbox"> ps aux 每个列的含义能说清楚吗？（%CPU %MEM VSZ RSS STAT）</li>
+      <li><input type="checkbox"> D 状态进程为什么 kill -9 也没用？</li>
+      <li><input type="checkbox"> 僵尸进程怎么产生、怎么排查？</li>
+      <li><input type="checkbox"> VSZ 很大但 RSS 很小说明什么？</li>
+      <li><input type="checkbox"> 怎么查看一个进程有多少线程？</li>
+      <li><input type="checkbox"> pstree 用过吗？什么时候用？</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redis 面试专题 — Go 后端面试训练营</title><link rel="stylesheet" href="../css/style.css">
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a><a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="index.html" class="redis-link active">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a><a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a><a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+<div class="hero"><div class="icon">🔴</div><h1 style="background:linear-gradient(135deg,#f87171,#DC382D);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Redis 面试专题</h1><p class="subtitle">缓存三大问题 · 持久化 · 高可用 · 分布式锁 · 数据结构</p></div>
+<div class="summary-box"><div class="label">🎯 Redis 面试核心</div><div class="one-liner" style="font-size:18px">缓存三兄弟(穿透/击穿/雪崩) + Redis为什么快 + 高可用(主从/哨兵/Cluster) = 三大必问方向</div></div>
+<div class="cat-header"><span class="cat-icon" style="color:var(--redis-red)">🔴</span><h2>10 个核心主题</h2><span class="cat-tag redis-tag">第一梯队 P0</span></div>
+<div class="card-grid">
+  <a href="cache-penetration.html" class="card"><div class="card-num">RD-01</div><h3>缓存穿透</h3><p>不存在的数据 · 布隆过滤器 · 空值缓存</p></a>
+  <a href="cache-breakdown.html" class="card"><div class="card-num">RD-02</div><h3>缓存击穿</h3><p>热点Key过期 · 互斥锁 · 逻辑过期</p></a>
+  <a href="cache-avalanche.html" class="card"><div class="card-num">RD-03</div><h3>缓存雪崩</h3><p>批量过期 · TTL随机化 · 多级缓存</p></a>
+  <a href="persistence.html" class="card"><div class="card-num">RD-04</div><h3>持久化 RDB vs AOF</h3><p>快照 · 追加日志 · 混合持久化</p></a>
+  <a href="replication.html" class="card"><div class="card-num">RD-05</div><h3>主从复制原理</h3><p>全量同步 · 增量同步 · PSYNC</p></a>
+  <a href="sentinel.html" class="card"><div class="card-num">RD-06</div><h3>哨兵模式详解</h3><p>SDOWN · ODOWN · Leader选举</p></a>
+  <a href="cluster.html" class="card"><div class="card-num">RD-07</div><h3>Cluster 集群</h3><p>16384槽 · Gossip · MOVED/ASK</p></a>
+  <a href="distributed-lock.html" class="card"><div class="card-num">RD-08</div><h3>分布式锁</h3><p>SET NX PX · Lua释放 · RedLock</p></a>
+  <a href="bigkey.html" class="card"><div class="card-num">RD-09</div><h3>BigKey & 热Key</h3><p>阻塞 · 拆分 · 本地缓存</p></a>
+  <a href="why-fast.html" class="card"><div class="card-num">RD-10</div><h3>Redis 为什么快？</h3><p>内存+单线程+epoll+数据结构</p></a>
+</div>
+<div class="page-footer">来财出品 · Go 后端面试训练营 · 2026.05.24</div>
+</div>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body></html>

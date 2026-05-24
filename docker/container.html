@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DO-03 容器生命周期 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="index.html" class="docker-link active">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">Docker</a> &rsaquo; 容器生命周期</div>
+  <h1>🐳 容器生命周期</h1>
+  <div class="meta">
+    <span>编号 DO-03</span>
+    <span>分类：容器原理</span>
+    <span>难度：⭐⭐⭐</span>
+    <span>频率：高频</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">容器生命周期：create（创建）→ start（启动）→ running / stop（停止）→ kill（强制停）→ rm（删除）。容器本质是进程（Namespace 隔离 + Cgroup 限制），退出后文件系统保留直到 rm。PID 1 问题：容器内主进程需正确处理信号。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「临时工位」看懂容器生命周期</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">🏗️</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：create = 搭隔间</strong><br><span style="color:var(--text-secondary)">公司给新员工分配了一个格子间——装了隔板（Namespace 隔离）、拉了网线（Network）、给了预算帽（Cgroup 资源限制），但人还没来。这就是 <strong style="color:#fbbf24">docker create</strong>：文件系统和网络都分配好了，进程还没启动。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">🪑</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">▶️</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：start → running = 开工干活</strong><br><span style="color:var(--text-secondary)"><strong style="color:#fbbf24">docker start</strong>——员工坐进格子间，打开电脑开始工作，状态变成 running。<strong style="color:#fbbf24">docker run = create + start</strong> 一步到位，搭好隔间直接开工。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🌙</div>
+    <div>
+      <strong style="color:var(--warning)">场景3：stop = 正常下班</strong><br><span style="color:var(--text-secondary)"><strong style="color:#fbbf24">docker stop</strong>——HR 敲门说「下班了」（SIGTERM），给你 10 秒收拾东西。员工自己关电脑走人。如果 10 秒后还不走（不响应 SIGTERM），保安过来拉闸（SIGKILL）。这就是 PID 1 问题的根源——很多程序不听敲门！</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">👮</div>
+    <div>
+      <strong style="color:#f87171">场景4：kill = 被保安拖走</strong><br><span style="color:var(--text-secondary)"><strong style="color:#f87171">docker kill</strong>——不敲门，保安直接冲进去拉闸断电（SIGKILL），员工连保存的机会都没有。和 stop 的区别：stop 给 10 秒优雅期，kill 直接杀，不留情面。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-600">
+    <div class="scene-icon">🔨</div>
+    <div>
+      <strong style="color:var(--text-muted)">场景5：rm = 拆掉隔间</strong><br><span style="color:var(--text-secondary)"><strong style="color:#fbbf24">docker rm</strong>——员工离职后，隔板拆了、桌子搬走、网线拔了。文件系统彻底清理。注意：只有 rm 后文件才真没——stop 了容器文件还在，跟员工下班了但私人物品还在工位一样。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">🏗️</span>
+    <div class="metaphor-title">create</div>
+    <div class="metaphor-desc">搭隔间
+分配Namespace+Cgroup</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">▶️</span>
+    <div class="metaphor-title">start/run</div>
+    <div class="metaphor-desc">开工
+启动容器进程</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">🌙</span>
+    <div class="metaphor-title">stop</div>
+    <div class="metaphor-desc">正常下班
+SIGTERM→10s→SIGKILL</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">🔨</span>
+    <div class="metaphor-title">rm</div>
+    <div class="metaphor-desc">拆隔间
+文件系统彻底清理</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>容器是 Docker 镜像的运行实例。从"镜像"这个静态模板创建出"容器"这个动态进程。容器本质上就是一个被隔离和限制的 Linux 进程 + 独立的文件系统视图。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>容器提供了轻量级的应用隔离方案，没有虚拟机的完整 OS 开销。启动速度秒级（VM 分钟级），资源利用率高（共享宿主机内核），一台物理机可以跑成百上千个容器。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>解决"应用运行环境标准化"问题。同一个镜像在开发/测试/生产环境运行的容器行为完全一致。同时解决了进程隔离（不互相影响）和资源管控（不互相抢占）的需求。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>底层依赖 Linux 两大内核特性：① Namespace 实现隔离（PID/Network/Mount/UTS/IPC/User/Cgroup Namespace 共 7 种），让容器看起来像独立系统；② Cgroup 实现资源限制（CPU/内存/IO/网络），防止一个容器耗尽宿主机资源。生命周期六个状态：created → running → paused → stopped → deleted，外加 restarting 过渡态。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① PID 1 问题：容器内 PID 1 进程不处理信号（默认忽略 SIGTERM），docker stop 可能等到超时后才 SIGKILL；② 隔离不彻底：共享宿主机内核，内核 bug 可能影响所有容器；③ 退出后文件残留（docker rm 才真正清理）；④ 状态管理需要注意 zombie 容器。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① PID 1 问题：使用 dumb-init 或 tini 作为 PID 1（正确转发信号+回收僵尸进程），或用 <code>docker run --init</code>；② 内核隔离：安全敏感场景可结合 Kata Containers（轻量 VM）；③ 清理策略：<code>docker run --rm</code> 自动删除；④ docker system prune 定期清理僵尸容器和悬空镜像。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>开发环境常用 <code>docker run --rm -it image sh</code> 临时调试。生产环境用 <code>docker run -d --restart=always</code> 保证自动重启。配合 <code>--memory=512m --cpus=1</code> 限制容器资源。用 <code>docker inspect</code> 查看容器状态、Pid、Mounts 等详细信息。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"容器生命周期六步：create 创建 → start 启动 → running 运行 → stop 正常停止 → kill 强制停止 → rm 删除。容器本质是 Namespace 隔离 + Cgroup 限制的 Linux 进程。关键坑是 PID 1 问题——容器主进程不处理信号，docker stop 发 SIGTERM 它不理，等到 10 秒超时被 SIGKILL 强杀。解决方案是 dumb-init/tini 或 <code>--init</code> 参数。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"容器就是轻量级虚拟机"（本质是进程，不是 VM）</li>
+        <li>"docker stop 马上停"（先 SIGTERM，10s 超时后 SIGKILL）</li>
+        <li>"docker rm 和 docker stop 一样"（stop 停进程保留容器，rm 删除）</li>
+        <li>"PID 1 能正常处理信号"（默认 shell/bash 不转发信号）</li>
+        <li>"容器完全隔离很安全"（共享内核，隔离不如 VM）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"容器是 Namespace+Cgroup 隔离的进程，不是虚拟机"</li>
+        <li>"docker stop = SIGTERM（10s grace period）→ SIGKILL"</li>
+        <li>"容器退出后文件系统还在，文件真正删除在 docker rm"</li>
+        <li>"PID 1 问题：需要 dumb-init/tini 转发信号、回收僵尸进程"</li>
+        <li>"7 种 Namespace：PID/Network/Mount/UTS/IPC/User/Cgroup"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">🐳 容器</div>
+    <div class="branch">├─ <span class="arrow">→</span> 生命周期</div>
+    <div class="leaf">│  ├─ create：分配文件系统和网络，未启动</div>
+    <div class="leaf">│  ├─ start：启动容器进程</div>
+    <div class="leaf">│  ├─ run = create + start（一步到位）</div>
+    <div class="leaf">│  ├─ stop：SIGTERM → 10s → SIGKILL</div>
+    <div class="leaf">│  ├─ kill：直接 SIGKILL（无优雅期）</div>
+    <div class="leaf">│  └─ rm：删除容器和文件系统</div>
+    <div class="branch">├─ <span class="arrow">→</span> 底层机制：Namespace + Cgroup</div>
+    <div class="leaf">│  ├─ PID Namespace：进程隔离（容器内 PID 1 是宿主机某 PID）</div>
+    <div class="leaf">│  ├─ Network Namespace：独立网络栈（网卡/IP/端口）</div>
+    <div class="leaf">│  ├─ Mount Namespace：独立文件系统挂载点</div>
+    <div class="leaf">│  └─ Cgroup：CPU/内存/IO/网络带宽限制</div>
+    <div class="branch">├─ <span class="arrow">→</span> PID 1 问题</div>
+    <div class="leaf">│  ├─ 容器内 PID 1 不自动处理 SIGTERM</div>
+    <div class="leaf">│  ├─ 解决方案：dumb-init / tini（轻量 init 进程）</div>
+    <div class="leaf">│  └─ Docker 内置：<code>docker run --init</code></div>
+    <div class="branch">├─ <span class="arrow">→</span> docker exec 原理</div>
+    <div class="leaf">│  ├─ 进入已有容器的 Namespace（setns 系统调用）</div>
+    <div class="leaf">│  ├─ 新进程加入 PID/Mount/Network 等 Namespace</div>
+    <div class="leaf">│  └─ 因此 exec 能看见容器内的进程和文件</div>
+    <div class="branch">├─ <span class="arrow">→</span> exit vs stop</div>
+    <div class="leaf">│  ├─ exit：容器内主进程自己退出（正常结束）</div>
+    <div class="leaf">│  ├─ stop：从外部发信号让容器停止</div>
+    <div class="leaf">│  └─ 容器退出码：0 正常，非 0 异常</div>
+    <div class="branch">└─ <span class="arrow">→</span> restart 策略</div>
+    <div class="leaf">   ├─ no：不自动重启（默认）</div>
+    <div class="leaf">   ├─ always：总是重启（Docker daemon 启动时也重启）</div>
+    <div class="leaf">   ├─ unless-stopped：除非手动 stop，否则重启</div>
+    <div class="leaf">   └─ on-failure:N：退出码非 0 时重启，最多 N 次</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"容器 = 临时工位（独立隔间 + 预算限制）：create = 搭隔间，start = 开始工作，stop = 正常下班，kill = 被保安拖走，rm = 拆掉隔间"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 说出容器生命周期的 6 个关键状态（create/start/run/stop/kill/rm）</li>
+    <li><input type="checkbox"> 解释 Namespace 和 Cgroup 的作用和区别</li>
+    <li><input type="checkbox"> 说出至少 4 种 Namespace 类型</li>
+    <li><input type="checkbox"> 解释 PID 1 问题及解决方案（dumb-init/tini/--init）</li>
+    <li><input type="checkbox"> 解释 docker stop 的两阶段信号机制（SIGTERM → 10s → SIGKILL）</li>
+    <li><input type="checkbox"> 说出 restart 策略的 4 种模式及区别</li>
+    <li><input type="checkbox"> 解释 docker exec 的原理（setns 加入已有 Namespace）</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

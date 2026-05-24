@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shell 脚本实战 — Linux 面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link active">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+  <div class="interview-header">
+    <div class="breadcrumb"><a href="../linux/index.html">Linux</a> / Shell 脚本实战</div>
+    <h1>Shell 脚本 — Linux 自动化核心</h1>
+    <div class="meta"><span>编号：LINUX-08</span><span>难度：⭐⭐⭐</span><span>频率：🔥🔥🔥🔥🔥</span></div>
+  </div>
+
+  <div class="summary-box anim-scale">
+    <div class="label">💡 一句话结论</div>
+    <div class="one-liner">Shell 脚本是 Linux 自动化核心：变量（赋值无空格 variable=value）、条件（[ ] / [[ ]] / (( ))）、循环（for/while）、函数、错误处理（set -e / set -u）、参数传递（$1 / $@ / $#）。shebang：#! /bin/bash。</div>
+  </div>
+
+  <!-- ====== 🎬 生活类比故事 ====== -->
+  <section class="story-section">
+    <div class="story-label">🎬 生活类比 — Shell 脚本 = 菜谱</div>
+    <div class="story-title">用「做菜」看懂 Shell 脚本编程</div>
+
+    <div class="story-scene anim-fade-left">
+      <div class="scene-icon">🥬</div>
+      <div>
+        <strong style="color:var(--accent)">场景1：变量 = 食材，参数 = 顾客点单</strong><br>
+        <span style="color:var(--text-secondary)">你开了一家餐厅。<strong style="color:#fbbf24">name="宫保鸡丁"</strong> = 准备食材（变量赋值，等号两边不能有空格——食材和名字必须紧贴）。<strong style="color:#fbbf24">$1 $2</strong> = 顾客点的第一道菜、第二道菜（位置参数）。<strong style="color:#fbbf24">$# = 顾客点了几道菜</strong>，<strong style="color:#fbbf24">$? = 上道菜做成功了吗</strong>（退出码 0=成功）。</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-right delay-200">
+      <div class="scene-icon">🔥</div>
+      <div>
+        <strong style="color:var(--accent)">场景2：条件 = 火候判断，循环 = 重复步骤</strong><br>
+        <span style="color:var(--text-secondary)"><strong style="color:#fbbf24">if [ "$oil_temp" -gt 180 ]</strong> = 油温够了吗？够了才下菜（条件判断）。[[]] 比 [] 更聪明——油温够且菜切好了才开炒（支持 && || 逻辑）。<strong style="color:#fbbf24">for 客人 in 客人列表; do 炒菜; done</strong> = 每个客人都炒一遍（循环）。</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-left delay-400">
+      <div class="scene-icon">🧯</div>
+      <div>
+        <strong style="color:var(--accent)">场景3：set -e = 一烧糊就关火，trap = 关火后收拾厨房</strong><br>
+        <span style="color:var(--text-secondary)"><strong style="color:#f87171">set -e</strong> = 任何一步炒糊了（命令失败），立刻关火停止（脚本退出），别让厨房烧了。<strong style="color:#fbbf24">set -u</strong> = 发现食材没准备（使用未定义变量）就报错。<strong style="color:#fbbf24">set -x</strong> = 每一步都喊出来让徒弟看清（调试模式）。<strong style="color:#fbbf24">trap "收拾厨房" EXIT</strong> = 不管成功失败，最后一定收拾干净。</span>
+      </div>
+    </div>
+
+    <div class="story-scene anim-fade-right delay-600">
+      <div class="scene-icon">🧂</div>
+      <div>
+        <strong style="color:var(--accent)">场景4：函数 = 调料包</strong><br>
+        <span style="color:var(--text-secondary)"><strong style="color:#fbbf24">make_sauce() { ... }</strong> = 把调料配方做成一个调料包（函数），每次需要时调用 <strong style="color:#fbbf24">make_sauce 麻辣</strong>（函数名+参数），不用每次都重写配方。return 0 = 调料做成功了，echo = 把做好的调料递出来。</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="metaphor-grid">
+    <div class="metaphor-card anim-fade-up delay-100">
+      <span class="metaphor-emoji">🥬</span>
+      <div class="metaphor-title">变量 = 食材</div>
+      <div class="metaphor-desc">name=value 无空格<br>$1顾客点单 $?成败</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-200">
+      <span class="metaphor-emoji">🔥</span>
+      <div class="metaphor-title">条件 = 火候</div>
+      <div class="metaphor-desc">[[]] 支持 && ||<br>火候到了才下菜</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-300">
+      <span class="metaphor-emoji">🧯</span>
+      <div class="metaphor-title">set -e = 安全阀</div>
+      <div class="metaphor-desc">烧糊就关火<br>一错即停 防止厨房火灾</div>
+    </div>
+    <div class="metaphor-card anim-fade-up delay-400">
+      <span class="metaphor-emoji">🧂</span>
+      <div class="metaphor-title">函数 = 调料包</div>
+      <div class="metaphor-desc">一次调配多次使用<br>echo返回 trap收拾</div>
+    </div>
+  </div>
+
+  <div class="section highlight anim-fade-up">
+    <h3><span class="emoji">📋</span> 7步答题模板</h3>
+    <div class="answer-template">
+      <div class="step"><h4>第一步：一句话定义</h4><p>Shell 脚本是 Linux 系统管理的基石，用于自动化执行命令序列。常见 Shell 有 bash（默认）、zsh、sh。第一行 shebang #! /bin/bash 指定解释器。</p></div>
+      <div class="step"><h4>第二步：变量（必考点）</h4><p>赋值不能有空格：name="hello"（正确）、name = "hello"（错误！）。引用用 $name 或 ${name}（后者可拼接）。环境变量：export VAR=value 让子进程继承。只读变量：readonly VAR。常用特殊变量：$0 脚本名、$1-$9 位置参数、$@ 所有参数（分开）、$* 所有参数（整体）、$# 参数个数、$? 上条命令退出码、$$ 当前 shell PID。</p></div>
+      <div class="step"><h4>第三步：条件判断</h4><p>test / [ ]：字符串比较 [ "$a" = "$b" ]、数字比较 [ $a -eq $b ]、文件判断 [ -f file ] [ -d dir ] [ -x file ]。[[ ]]：bash 增强版，支持 && || 和正则 =~，变量不用加引号也不会 word splitting。(( ))：算术运算 ((a+b>10))。</p></div>
+      <div class="step"><h4>第四步：循环</h4><p>for i in list; do ... done（遍历列表）。for ((i=0; i&lt;10; i++)); do ... done（C 风格）。while condition; do ... done（条件循环）。break 跳出、continue 跳过当前。循环读文件：while read line; do echo $line; done &lt; file.txt。</p></div>
+      <div class="step"><h4>第五步：函数</h4><p>定义：function name { ... } 或 name() { ... }。调用：name arg1 arg2（不需要括号）。参数：$1 $2 在函数内部也是位置参数。返回值：return 只能 0-255（成功/失败），数据通过 echo 返回：result=$(my_func)。</p></div>
+      <div class="step"><h4>第六步：错误处理</h4><p>set -e：任何命令失败立即退出（推荐）。set -u：使用未定义变量时报错。set -x：调试模式，打印每条执行的命令。set -o pipefail：管道中任一命令失败则整个管道失败。trap：捕获信号 → trap 'echo cleanup; exit' EXIT INT TERM。</p></div>
+      <div class="step"><h4>第七步：实战脚本模板</h4><p>#!/bin/bash、set -euo pipefail、变量定义、参数检查（if [ $# -lt 1 ]; then echo "Usage..."; exit 1; fi）、主逻辑、错误处理 trap。典型场景：服务启动脚本、日志清理、批量部署、定时备份。</p></div>
+    </div>
+  </div>
+
+  <div class="timer-box">
+    <div class="timer-icon">⏱️</div>
+    <div>
+      <div class="timer-label">60秒面试表达</div>
+      <div class="timer-text">"Shell 脚本是运维自动化标配。关键语法：变量赋值不能有空格、[[]] 比 [] 更安全支持正则、$? 判断上条命令成败、${var:-default} 给默认值。错误处理必须做——set -euo pipefail 三件套 + trap 清理。$@ 和 $* 的区别也常被问到：$@ 是分开的参数 "$1" "$2"，$* 是整体 "$1 $2"。"</div>
+    </div>
+  </div>
+
+  <div class="section warning-zone">
+    <h3><span class="emoji">⚠️</span> 面试常见错误 vs 正确回答</h3>
+    <div class="compare">
+      <div class="col before">
+        <h4>❌ 错误回答</h4>
+        <p>"name = value 就行"<br><br>"[ ] 和 [[ ]] 一样"<br><br>"Shell 脚本不需要错误处理，跑完就行"</p>
+      </div>
+      <div class="col after">
+        <h4>✅ 正确回答</h4>
+        <p>"赋值绝对不能有空格：name=value，等号两边紧贴"<br><br>"[[ ]] 是 bash 增强版，支持 && || 和正则，变量不需要引号保护"<br><br>"set -e + trap 是生产脚本的底线，不做的脚本迟早出生产事故"</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim-fade-up">
+    <h3><span class="emoji">🌲</span> 追问树</h3>
+    <div class="tree">
+      <span class="node">Shell 脚本</span><br>
+      <span class="branch">├─ 变量怎么定义和使用？</span><br>
+      <span class="leaf">→ name=value（无空格）、$name、${name}、export、readonly</span><br>
+      <span class="branch">├─ [ ] vs [[ ]] vs (( )) 有什么区别？</span><br>
+      <span class="leaf">→ [ ] = POSIX test、[[ ]] = bash 增强(正则/&&/||)、(( )) = 算术</span><br>
+      <span class="branch">├─ 循环怎么写？</span><br>
+      <span class="leaf">→ for i in list / for((;;)) / while、break/continue</span><br>
+      <span class="branch">├─ 函数怎么定义和调用？</span><br>
+      <span class="leaf">→ name(){...}、调用 name arg1 arg2、return 0-255、echo 返回数据</span><br>
+      <span class="branch">├─ 错误处理怎么做？</span><br>
+      <span class="leaf">→ set -e(失败退出) / -u(未定义报错) / -x(调试) / trap 信号捕获</span><br>
+      <span class="branch">└─ 特殊参数有哪些？</span><br>
+      <span class="leaf">→ $1-$9(位置) / $@$* / $#(个数) / $?(退出码) / $$(PID) / $!(后台PID)</span>
+    </div>
+  </div>
+
+  <div class="memory-hook">
+    <div class="hook-label">🧠 记忆钩子</div>
+    <div class="hook-text">"Shell 脚本 = 菜谱：变量 = 食材、条件 = 火候判断、循环 = 每个菜重复步骤、函数 = 调料包（一次准备多次用）、set -e = 一烧糊就关火、trap = 关火后收拾厨房"</div>
+  </div>
+
+  <div class="section success-zone">
+    <h3><span class="emoji">✅</span> 自检清单</h3>
+    <ul class="check-list">
+      <li><input type="checkbox"> name=value 和 name = value 哪个对？为什么？</li>
+      <li><input type="checkbox"> [ "$a" = "$b" ] 、[[ $a == $b ]]、(( a==b )) 的使用场景？</li>
+      <li><input type="checkbox"> $@ 和 $* 区别？什么时候用 "$@"？</li>
+      <li><input type="checkbox"> set -e、set -u、set -o pipefail 各自作用？</li>
+      <li><input type="checkbox"> trap 怎么用？生产脚本为什么需要它？</li>
+      <li><input type="checkbox"> 面试官问"写个检查进程并自动重启的脚本"，能写出来吗？</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>慢查询优化实战 — MySQL面试</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="index.html" class="mysql-link active">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb">
+    <a href="../index.html">首页</a> &raquo;
+    <a href="index.html">MySQL</a> &raquo;
+    <span>#06</span>
+  </div>
+  <h1>慢查询优化实战</h1>
+  <span class="q-number">TOP 06 ⭐⭐⭐⭐⭐</span>
+</header>
+
+<div class="summary-box anim-scale">
+  <p class="big-conclusion">慢查询优化流程：①开启slow_query_log ②分析慢查询日志(pt-query-digest) ③EXPLAIN定位问题 ④优化策略:加索引/重写SQL/读多写少场景加缓存/数据量过大分库分表</p>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 交通治理</div>
+  <div class="story-title">一条 SQL 堵了 3 秒，就像早高峰的一个路口瘫痪了整条街</div>
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">📷</div>
+    <div><strong style="color:var(--accent)">场景：慢查询日志 = 交通摄像头</strong><br><span style="color:var(--text-secondary)">摄像头记录所有超时路口——慢查询日志记录所有执行超过0.5秒的SQL。没有摄像头你根本不知道哪条路堵了</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🔍</div>
+    <div><strong style="color:var(--accent)">场景：EXPLAIN = 堵点分析</strong><br><span style="color:var(--text-secondary)">交警站在路口数车流——EXPLAIN告诉你：哪个查询在用全表扫描(type=ALL)、扫描了多少行(rows=100万)、有没有建临时表(Using temporary)</span></div>
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">🛣️</div>
+    <div><strong style="color:var(--accent)">场景：加索引 = 加车道</strong><br><span style="color:var(--text-secondary)">路口太窄→拓宽+加车道。索引就像多修几条车道：原来一条路串行，加索引后多条路并行，车流速度瞬间翻倍</span></div>
+  </div>
+  <div class="story-scene anim-fade-right delay-600">
+    <div class="scene-icon">🚌</div>
+    <div><strong style="color:var(--accent)">场景：缓存 = 公交专线</strong><br><span style="color:var(--text-secondary)">高频热点数据开Redis缓存——相当于给热门路线开公交专线(BRT)。大家都走快速通道，不用在普通车道排队</span></div>
+  </div>
+</section>
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100"><span class="metaphor-emoji">📷</span><div class="metaphor-title">日志 = 摄像头</div><div class="metaphor-desc">记录所有超时的SQL，发现拥堵源头</div></div>
+  <div class="metaphor-card anim-fade-up delay-200"><span class="metaphor-emoji">🔍</span><div class="metaphor-title">EXPLAIN = 堵点分析</div><div class="metaphor-desc">定位具体哪个路口(查询)最堵、原因是什么</div></div>
+  <div class="metaphor-card anim-fade-up delay-300"><span class="metaphor-emoji">🛣️</span><div class="metaphor-title">索引 = 加车道</div><div class="metaphor-desc">拓宽路口，让车流(查询)并行通过</div></div>
+  <div class="metaphor-card anim-fade-up delay-400"><span class="metaphor-emoji">🌉</span><div class="metaphor-title">分库分表 = 建新路</div><div class="metaphor-desc">单条路扛不住→建多条路分流，最后的手段</div></div>
+</div>
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step"><h4>Step 1 — 是什么</h4><p>慢查询指执行时间超过long_query_time阈值的SQL语句。MySQL提供慢查询日志记录所有超时SQL</p></div>
+    <div class="step"><h4>Step 2 — 为什么</h4><p>单个慢SQL可能拖垮整个数据库——占CPU、抢锁、占连接池，导致雪崩。线上99%的数据库性能问题都能追溯到几条慢SQL</p></div>
+    <div class="step"><h4>Step 3 — 解决的核心问题</h4><p>系统性发现、分析、优化数据库性能瓶颈。从"用户反馈系统变慢"到"精确定位哪条SQL慢了200ms"</p></div>
+    <div class="step"><h4>Step 4 — 核心原理</h4><p>慢查询日志记录SQL文本+执行时间+扫描行数+锁等待时间。pt-query-digest统计分析出TOP N慢SQL。EXPLAIN定位具体原因（没索引/索引失效/全表扫描）</p></div>
+    <div class="step"><h4>Step 5 — 缺点/局限</h4><p>慢查询日志本身有性能开销(约5%)；只记录超时的，不超时的"潜在慢SQL"发现不了；日志文件会很大需要定期清理</p></div>
+    <div class="step"><h4>Step 6 — 如何解决</h4><p>使用performance_schema的events_statements_summary_by_digest表替代慢查询日志（开销更低，覆盖所有SQL）。慢查询日志开启按天切分+自动清理</p></div>
+    <div class="step"><h4>Step 7 — 实际落地</h4><p>开启慢查询日志：set global slow_query_log=ON; set global long_query_time=0.5;。分析工具：pt-query-digest slow.log。优化策略：加索引→改写SQL→加缓存→分库分表</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">慢查询优化是四步法。第一步开日志：把long_query_time设成0.5~1秒，记录所有慢SQL。第二步分析：用pt-query-digest跑日志，它会按执行总时长排名——找出耗时最多的几条SQL，这就是靶子。第三步定位：每条慢SQL用EXPLAIN看，99%的问题都是"没走索引""索引失效""扫描行数太大"三类。第四步对症：索引问题加索引、SQL写的烂就重写（比如把OR改成UNION、避免SELECT *、LIMIT大偏移量用子查询）、读多写少的加热点缓存、数据量实在太大考虑分区或分表。</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before"><h4>❌ 错误表达</h4>
+      <ul>
+        <li>"慢查询优化就是加索引" — 只加索引是偷懒，很多慢SQL是因为SQL写法问题</li>
+        <li>"long_query_time设的越小越好" — 太小会导致日志爆炸且开销大，生产一般0.5~2秒</li>
+        <li>"发现慢SQL直接加force index" — 绕过优化器治标不治本，数据分布变了索引适得其反</li>
+        <li>"分库分表就能解决所有慢查询" — 分库分表是最后手段，引入分布式事务、跨库JOIN等新问题</li>
+      </ul></div>
+    <div class="col after"><h4>✅ 正确表达</h4>
+      <ul>
+        <li>"先<strong>量化</strong>：pt-query-digest找出执行次数×平均耗时的TOP SQL；再<strong>定性</strong>：EXPLAIN定位具体原因"</li>
+        <li>"优化有<strong>优先级</strong>：加索引(成本最低)→改写SQL→加缓存→读写分离→分库分表(成本最高)"</li>
+        <li>"<strong>索引失效</strong>的经典场景：函数操作(WHERE DATE(create_time))、隐式类型转换(varchar列用数字查)、OR条件不全有索引、LIKE '%xxx'"</li>
+        <li>"<strong>profiling</strong>可以精确到微秒级：SET profiling=1; SHOW PROFILES; SHOW PROFILE FOR QUERY N; 看到Sending data占比高=回表太多"</li>
+      </ul></div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">慢查询优化四步法</div>
+    <div class="branch">├─ <span class="arrow">→</span> 如何开启和分析慢查询日志？</div>
+    <div class="leaf">│  └─ slow_query_log=ON，long_query_time=N秒，log_queries_not_using_indexes记录未用索引的SQL。分析：pt-query-digest生成TOP报告，mysqldumpslow快速预览</div>
+    <div class="branch">├─ <span class="arrow">→</span> 慢查询常见原因有哪些？</div>
+    <div class="leaf">│  └─ ①没走索引(没有/失效) ②索引不合适(选择性低) ③扫描行数太大(LIMIT大偏移) ④锁等待 ⑤大数据量排序/分组 ⑥返回数据太多(SELECT *) ⑦关联表太多</div>
+    <div class="branch">├─ <span class="arrow">→</span> 索引失效的经典场景？</div>
+    <div class="leaf">│  └─ WHERE列上使用函数(DATE(col))、隐式类型转换、LIKE '%xxx'前缀%、OR条件不同列索引、联合索引不满足最左前缀、!=/<>/NOT IN、IS NULL/IS NOT NULL(视索引情况)</div>
+    <div class="branch">├─ <span class="arrow">→</span> 如何改写SQL做优化？</div>
+    <div class="leaf">│  └─ 避免SELECT *；大OFFSET用子查询(WHERE id>上次max_id)；OR改UNION；IN改EXISTS(子查询是大表时)；COUNT(*)替代COUNT(col)；分页用延迟关联</div>
+    <div class="branch">├─ <span class="arrow">→</span> 什么时候用缓存？</div>
+    <div class="leaf">│  └─ 读多写少+实时性要求不高→Redis缓存。注意：缓存穿透(查不存在的数据)→布隆过滤器；缓存击穿(热点过期)→互斥锁/永不过期+异步更新</div>
+    <div class="branch">├─ <span class="arrow">→</span> Profiling 怎么精确定位？</div>
+    <div class="leaf">│  └─ SET profiling=1→执行SQL→SHOW PROFILES→SHOW PROFILE CPU,BLOCK IO FOR QUERY N。Sending data占比高=回表多；Creating tmp table=排序/分组有问题</div>
+    <div class="branch">└─ <span class="arrow">→</span> 什么时候分库分表？</div>
+    <div class="leaf">   └─ 单表>2000万行且索引优化到极限后仍慢→分表(水平拆分)。单库QPS/连接数达到瓶颈→分库。先优化再拆分，别用分库分表掩盖设计问题</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">慢查询优化像<strong>交通治理</strong>：先看<strong>监控</strong>（慢查询日志）→找<strong>堵点</strong>（EXPLAIN定位）→加<strong>车道</strong>（建索引）→<strong>限流</strong>（加缓存）→<strong>修新路</strong>（分库分表）。大多数拥堵只要加一条车道（索引）就解决了</div>
+  <div class="hook-text" style="margin-top:0.8rem;font-size:0.9rem;opacity:0.85">4步 — 日志→分析→定位→优化 | 0.5~2s — 生产long_query_time | pt工具 — Percona Toolkit分析 | 2000万 — 单表分表参考阈值</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+<li><input type="checkbox"> 能独立从慢查询日志定位到具体慢SQL并给出EXPLAIN分析</li>
+    <li><input type="checkbox"> 能列举至少5种索引失效场景并解释原因</li>
+    <li><input type="checkbox"> 能说出SQL改写至少3种技巧（避免SELECT *、OR改UNION、大OFFSET优化）</li>
+    <li><input type="checkbox"> 能讲清楚缓存穿透/击穿/雪崩的区别和解决方案</li>
+    <li><input type="checkbox"> 能用profiling精确定位执行瓶颈（哪个阶段耗时最长）</li>
+    <li><input type="checkbox"> 能说明分库分表的前提条件和代价</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>

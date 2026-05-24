@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SD-06 推送系统设计 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="index.html" class="sd-link active">系统设计</a>
+  <a href="../ai-engineering/index.html" class="ai-link">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> &rsaquo; <a href="index.html">系统设计</a> &rsaquo; 推送系统</div>
+  <h1>📬 推送系统设计</h1>
+  <div class="meta">
+    <span>编号 SD-06</span>
+    <span>分类：消息推送</span>
+    <span>难度：⭐⭐⭐⭐</span>
+    <span>频率：高频</span>
+  </div>
+</header>
+
+<div class="summary-box anim-scale">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">推送系统核心：连接管理（长连接/轮询/厂商通道 APNs/FCM）→ 消息路由（根据设备+账号找连接）→ 可靠性（ACK + 离线存储 + 重试退避）→ 速率控制（单用户/全局限频）。架构：接入层 → 路由层 → 存储层。</div>
+</div>
+
+<!-- ====== 🎬 生活类比故事 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「快递配送」看懂推送系统</div>
+  <div class="story-title">用生活场景看懂全部概念</div>
+
+  <div class="story-scene anim-fade-left">
+    <div class="scene-icon">📮</div>
+    <div>
+      <strong style="color:var(--accent)">场景1：Device Token = 收货地址</strong><br><span style="color:var(--text-secondary)">App 安装后，系统给你分配一个<strong style="color:#fbbf24">唯一收货地址（device_token）</strong>——iOS 用 APNs 的地址格式，Android 用 FCM/厂商的地址格式。一个用户可能有多个地址（手机+平板+PC），推送时要全送到。地址失效了（卸App/系统更新），商家要标记无效不再发货。</span>
+    </div>
+    <div class="scene-arrow">→</div>
+    <div style="font-size:40px;animation:popIn 0.8s cubic-bezier(0.68,-0.55,0.27,1.55) both;animation-delay:0.3s">📬</div>
+  </div>
+  <div class="story-scene anim-fade-right delay-200">
+    <div class="scene-icon">🚚</div>
+    <div>
+      <strong style="color:var(--accent)">场景2：通道选择 = 配送方式</strong><br><span style="color:var(--text-secondary)">不同的收货地址用不同的快递公司：<strong style="color:#fbbf24">iPhone 地址 → 必须用苹果快递（APNs）</strong>，国内 Android 地址 → 华为/小米/OPPO/vivo 各自的配送员（厂商通道），Web → 自家配送员（自建 WebSocket）。国外 Android → Google 快递（FCM，但国内 Google 服务不可用）。</span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-left delay-400">
+    <div class="scene-icon">✍️</div>
+    <div>
+      <strong style="color:#a78bfa">场景3：ACK = 签收确认</strong><br><span style="color:var(--text-secondary)">快递小哥送到敲了门（推送），收货人签了字（ACK 确认）。没签？3 秒后再敲一次，9 秒后再敲，27 秒再敲（指数退避重试，最多 3 次）。三次都没人签？放快递柜（离线消息队列），等人回来自己去取（上线拉取离线消息）。<strong style="color:#a78bfa">没签收的快递不算送达。</strong></span>
+    </div>
+    
+  </div>
+  <div class="story-scene anim-fade-right delay-500">
+    <div class="scene-icon">📦</div>
+    <div>
+      <strong style="color:#34d399">场景4：全量推送 = 双十一发货潮</strong><br><span style="color:var(--text-secondary)">要给 5000 万用户发通知？不能一秒钟全发出去——快递站会炸。要<strong style="color:#34d399">分批打包（Batch Send）</strong>，每批 5000 件，控制每天的发货量（QPS 限制），用流水线排队（MQ 削峰）。还要过滤掉已拉黑的地址（卸载/30天不活跃用户），减少无效发货。</span>
+    </div>
+    
+  </div>
+
+</section>
+
+<!-- ====== 技术映射卡片 ====== -->
+<div class="metaphor-grid">
+  <div class="metaphor-card anim-fade-up delay-100">
+    <span class="metaphor-emoji">📮</span>
+    <div class="metaphor-title">Device Token</div>
+    <div class="metaphor-desc">收货地址
+多端注册多通道</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-200">
+    <span class="metaphor-emoji">🚚</span>
+    <div class="metaphor-title">通道选择</div>
+    <div class="metaphor-desc">iOS必走APNs
+国内安卓走厂商</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-300">
+    <span class="metaphor-emoji">✍️</span>
+    <div class="metaphor-title">ACK签收</div>
+    <div class="metaphor-desc">指数退避重试
+离线队列备取</div>
+  </div>
+  <div class="metaphor-card anim-fade-up delay-400">
+    <span class="metaphor-emoji">📦</span>
+    <div class="metaphor-title">全量推送</div>
+    <div class="metaphor-desc">分批打包发货
+限流+过滤无效地址</div>
+  </div>
+
+</div>
+
+
+<section class="section highlight anim-fade-up">
+  <h3><span class="emoji">🗺️</span> 7 步回答模板</h3>
+  <div class="answer-template">
+    <div class="step">
+      <h4>Step 1 — 是什么</h4>
+      <p>推送系统是服务端主动向客户端发送消息的基础设施，包括 App 通知推送（Push Notification）、Web 消息推送、邮件/短信推送等。核心挑战：<strong>多端多通道</strong>（iOS/Android/Web/PC）、<strong>海量连接</strong>（亿级设备在线）、<strong>到达率</strong>（消息能否成功送达）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 2 — 为什么需要</h4>
+      <p>App 在后台或被杀死时无法主动接收消息，必须依赖系统级推送通道：① iOS：APNs（Apple Push Notification service），唯一官方通道，App 被杀后仍可送达；② Android：FCM（Firebase Cloud Messaging，Google 服务）/ 厂商通道（华为 HMS Push、小米 MiPush、OPPO Push、vivo Push），国内 Google 服务不可用必须走厂商通道；③ Web：Web Push API（Service Worker 后台接收）；④ 自建长连接：IM、直播等低延迟场景需要自建通道实现秒级送达。</p>
+    </div>
+    <div class="step">
+      <h4>Step 3 — 解决什么核心问题</h4>
+      <p>三个核心：① <strong>找到连接</strong>——一个用户可能有多台设备多条连接，消息来了要找到所有在线的连接（设备注册 + Token 管理 + 连接路由表）；② <strong>可靠送达</strong>——通道可能失败（厂商限制、网络不可达），需要 ACK + 重试 + 离线存储 + 通道降级；③ <strong>不被限流</strong>——厂商通道有严格频率限制（单设备每秒 1 条），全量推送几千万用户需要分段分批发送。</p>
+    </div>
+    <div class="step">
+      <h4>Step 4 — 核心原理</h4>
+      <p>推送系统架构：<br>① <strong>接入层（Connection Gateway）</strong>：管理长连接（WebSocket/TCP），维护 device_id → connection 映射。同时管理厂商通道的 device_token → 厂商 API 适配。<br>② <strong>路由层（Message Router）</strong>：接收业务系统发送的推送请求 → 查询用户的所有在线设备 → 按优先级选择通道（自建长连接 > 厂商通道 > 短信兜底）→ 投递消息。<br>③ <strong>存储层</strong>：设备注册表（user_id, device_id, push_token, platform, last_online）、离线消息队列（按 user_id 存储未送达消息，上线后拉取）、送达记录（message_id, device_id, status, send_time, ack_time）。<br>④ <strong>可靠性</strong>：发送 → 等待 ACK（3-5 秒超时）→ 未收到则指数退避重试（3s/9s/27s，最多 3 次）→ 仍失败则写入离线队列，等用户上线再推送。厂商通道的 ACK 靠回调（APNs Feedback Service / FCM Delivery Receipt）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 5 — 缺点/局限</h4>
+      <p>① 通道碎片化严重：iOS APNs、Android 各厂商通道、Web Push、自建长连接，每个通道 API/限制/格式不同，维护成本高；② 到达率无法 100%：用户关闭通知权限、卸载 App、厂商通道服务不稳定等都会导致送达失败；③ 全量推送速度慢：几十万 QPS 的全量推送分批发送可能需要几分钟到几十分钟才能全部送达；④ 成本：第三方推送服务（极光/个推/友盟）按量计费，自建也需要大量服务器维护长连接。</p>
+    </div>
+    <div class="step">
+      <h4>Step 6 — 如何解决缺点</h4>
+      <p>① 通道统一抽象：定义 UnifiedPushChannel 接口，适配各种厂商 SDK，新增通道只需实现接口；② 多通道冗余：同时投递自建连接 + 厂商通道，任一路成功即认为送达；③ 全量推送优化：分片发送（Batch Send，每批 5000 用户），控制 QPS（限流到厂商要求的速率），使用消息队列平滑发送；④ 成本控制：区分优先级，营销类推送用低成本通道（厂商免费额度），重要通知用高可靠通道（自建 + 厂商双通道）。</p>
+    </div>
+    <div class="step">
+      <h4>Step 7 — 实际落地</h4>
+      <p>微信：自建 TCP 长连接为主 + APNs/FCM 为辅（App 后台时走厂商通道保活）。钉钉：自建长连接 + 厂商通道，全量推送秒级到达（10 万台服务器 + 自研消息中间件）。中小公司推荐方案：第三方推送 SDK（如极光推送）做主要通道，覆盖 iOS/Android/厂商，自建轻量 WebSocket 通道用于核心即时消息，各通道统一由路由层管理。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h3><span class="emoji">⏱️</span> 60 秒极简表达</h3>
+  <div class="timer-box">
+    <div class="timer-icon">⏳</div>
+    <div>
+      <div class="timer-label">60 秒内说清</div>
+      <div class="timer-text">"推送系统三件事：找到连接、可靠送达、不超限。用户有多台设备多条连接，通过 device_token 注册到平台（iOS 用 APNs、Android 用 FCM/厂商通道、自建 WebSocket）。消息来了：路由层查用户的在线设备，优先用自建长连接秒级送达，通道失败就重试（指数退避，最多 3 次），还失败就存离线队列。全量推送要分批发，控制速率别被厂商限流。到达率靠 ACK 确认 + 多通道冗余 + 离线存储，确保消息不丢。"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section warning-zone">
+  <h3><span class="emoji">⚠️</span> 千万别这么回答</h3>
+  <div class="compare">
+    <div class="col before">
+      <h4>❌ 错误表达</h4>
+      <ul>
+        <li>"发个 HTTP 请求就行了"（App 在后台根本收不到 HTTP 请求，必须走系统推送通道）</li>
+        <li>"全量推送就是循环发"（几千万用户循环发，时间不可控，厂商直接封你接口）</li>
+        <li>"Android 用 FCM 就搞定"（国内没有 Google Play Services，FCM 不可用）</li>
+        <li>"消息发出去了就是送达了"（不验证 ACK 的推送系统不可靠，到达率可能不到 60%）</li>
+        <li>"一个连接就够了"（一个用户可能手机+平板+PC 三端在线，需要全部覆盖）</li>
+      </ul>
+    </div>
+    <div class="col after">
+      <h4>✅ 正确表达</h4>
+      <ul>
+        <li>"推送 = 找到设备 → 选择通道 → 投递消息 → 等待 ACK → 必要时重试"</li>
+        <li>"iOS 走 APNs，国内 Android 必须接厂商通道（华为/小米/OPPO/vivo）"</li>
+        <li>"可靠送达靠 ACK 确认 + 指数退避重试（3s/9s/27s）+ 离线消息存储"</li>
+        <li>"全量推送要分批（Batch Send）+ 限流（QPS 限制）+ MQ 削峰，保证到达时间可控"</li>
+        <li>"多通道冗余：自建长连接 + 厂商通道同时发送，任一成功即停止，提高到达率"</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section anim-fade-up">
+  <h3><span class="emoji">🌲</span> 追问树</h3>
+  <div class="tree">
+    <div class="node">📬 推送系统</div>
+    <div class="branch">├─ <span class="arrow">→</span> 连接方式选型</div>
+    <div class="leaf">│  ├─ 自建长连接（WebSocket/TCP）：延迟最低，适合 IM/实时通知</div>
+    <div class="leaf">│  ├─ 轮询（HTTP Polling）：兼容性好但耗电耗流量，仅做兜底方案</div>
+    <div class="leaf">│  ├─ APNs（iOS）：苹果官方通道，App 杀死后仍然可达</div>
+    <div class="leaf">│  └─ FCM / 厂商通道（Android）：国内必须对接华为/小米/OPPO/vivo 四大厂商</div>
+    <div class="branch">├─ <span class="arrow">→</span> 设备注册 + Token 管理</div>
+    <div class="leaf">│  ├─ App 启动 → 获取 token → 注册到服务端（user_id + device_id + token + platform）</div>
+    <div class="leaf">│  ├─ Token 失效处理：APNs/FCM 返回 BadDeviceToken → 标记失效 → 不再推送</div>
+    <div class="leaf">│  └─ Token 更新：App 卸载重装/系统更新 token 变更 → 客户端自动重新注册</div>
+    <div class="branch">├─ <span class="arrow">→</span> 消息路由</div>
+    <div class="leaf">│  ├─ 查 user_id → 获取所有在线 device 列表</div>
+    <div class="leaf">│  ├─ 按 device 判断平台 → iOS 走 APNs / Android 走厂商 / Web 走自建</div>
+    <div class="leaf">│  └─ 通道优先级：自建长连接（< 100ms） > 厂商通道（< 500ms） > 短信兜底（秒级）</div>
+    <div class="branch">├─ <span class="arrow">→</span> 可靠性保障</div>
+    <div class="leaf">│  ├─ ACK 机制：发送 → 等待 ACK（3-5s 超时）→ 收到 ACK 标记送达</div>
+    <div class="leaf">│  ├─ 指数退避重试：3s → 9s → 27s，最多 3 次</div>
+    <div class="leaf">│  ├─ 离线存储：3 次重试仍失败 → 写入离线队列（Redis List）</div>
+    <div class="leaf">│  └─ 上线拉取：用户上线 → 长连接建立 → 拉取离线队列 → 逐条推送并确认</div>
+    <div class="branch">├─ <span class="arrow">→</span> 频率控制</div>
+    <div class="leaf">│  ├─ 单用户限频：每用户每秒不超过 N 条（防止刷屏/骚扰）</div>
+    <div class="leaf">│  ├─ 全局限频：全系统每秒总推送量上限（保护下游通道）</div>
+    <div class="leaf">│  └─ 厂商通道限流：每家厂商有独立 QPS 限制，需接入层分流</div>
+    <div class="branch">├─ <span class="arrow">→</span> 全量推送优化</div>
+    <div class="leaf">│  ├─ 分批发送：每批 5000-10000 用户，批次间间隔控制 QPS</div>
+    <div class="leaf">│  ├─ 消息合并：同一秒内对同一用户的多条推送合并为 1 条</div>
+    <div class="leaf">│  └─ 废弃用户过滤：推送前过滤已卸载 / 30 天未活跃用户，减少无效推送</div>
+    <div class="branch">└─ <span class="arrow">→</span> 到达率监控</div>
+    <div class="leaf">   ├─ 实时统计：发送量 / 到达量 / 点击率 / 送达延迟</div>
+    <div class="leaf">   ├─ 通道质量排名：各厂商通道到达率对比，差的降权或切换</div>
+    <div class="leaf">   └─ 告警阈值：到达率 < 80% 触发告警，排查通道异常</div>
+  </div>
+</section>
+
+<section class="section memory-hook">
+  <div class="hook-label">🧠 记忆钩子</div>
+  <div class="hook-text">"推送 = 快递配送系统：必须知道收货地址（device_token）和配送方式（自建长连接 = 自家快递员直达，APNs/FCM = 顺丰/京东快递，厂商通道 = 各品牌专卖店自己的配送员），送到后签收（ACK 确认），没法签收的放快递柜（离线队列等自取）。全量推送 = 双十一发促销短信——不能 1 秒全发完，得分批分时段，还要过滤掉已经拉黑的（已卸载用户）。"</div>
+</section>
+
+<section class="section success-zone">
+  <h3><span class="emoji">✅</span> 自检清单 — 你能流利回答吗？</h3>
+  <ul class="check-list">
+    <li><input type="checkbox"> 说出四种主要推送通道（自建长连接 / APNs / FCM / 厂商通道）</li>
+    <li><input type="checkbox"> 解释国内 Android 推送为何必须走厂商通道（Google 服务不可用）</li>
+    <li><input type="checkbox"> 说明设备注册流程（App 获取 token → 注册到服务端 → 关联 user_id）</li>
+    <li><input type="checkbox"> 解释消息路由流程（查用户设备 → 选通道 → 投递 → 等 ACK）</li>
+    <li><input type="checkbox"> 说明可靠性三件套（ACK + 指数退避重试 + 离线队列）</li>
+    <li><input type="checkbox"> 设计全量推送的分批+限流方案（Batch Send + QPS 控制）</li>
+    <li><input type="checkbox"> 解释频率控制的两个层面（单用户限频 + 全局限频）</li>
+    <li><input type="checkbox"> 说出到达率监控的关键指标（发送量 / 到达量 / 点击率 / 延迟）</li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  来财出品 · Go 后端面试强化训练营 · 2026.05.24
+</div>
+
+</div>
+<script>
+// 滚动触发动画
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      e.target.style.opacity = '';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('[class*="anim-"]').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+
+// 初始可见的元素立即播放（首屏）
+setTimeout(() => {
+  document.querySelectorAll('.summary-box[class*="anim-"]').forEach(el => {
+    el.style.animationPlayState = 'running';
+    el.style.opacity = '';
+  });
+}, 100);
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>
