@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-05 Prompt 工程 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="面试训练营"><meta name="theme-color" content="#1a1a2e"><link rel="apple-touch-icon" href="../icon-192.png">
+<style>
+  .qa-item { margin-bottom: 16px; }
+  .qa-q { font-weight: 700; color: var(--accent); font-size: 14px; margin-bottom: 6px; }
+  .qa-a { color: var(--text-secondary); font-size: 14px; line-height: 1.7; padding-left: 16px; border-left: 2px solid var(--border); }
+  .pattern-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+  .pattern-card { background: var(--bg-card); border-radius: var(--radius); padding: 16px; border-top: 3px solid transparent; }
+  .pattern-card:nth-child(1) { border-top-color: #f59e0b; }
+  .pattern-card:nth-child(2) { border-top-color: #3b82f6; }
+  .pattern-card:nth-child(3) { border-top-color: #10b981; }
+  .pattern-card:nth-child(4) { border-top-color: #8b5cf6; }
+  .pattern-card .pat-name { font-weight: 700; color: var(--text-primary); font-size: 14px; }
+  .pattern-card .pat-desc { font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html">Go</a><a href="../mysql/index.html">MySQL</a><a href="../redis/index.html">Redis</a><a href="../linux/index.html">Linux</a><a href="../mq/index.html">MQ</a><a href="../docker/index.html">Docker</a><a href="../k8s/index.html">K8s</a><a href="../cicd/index.html">CI/CD</a><a href="../system-design/index.html">系统设计</a><a href="index.html" class="active">AI 工程</a>
+</nav>
+<div class="container">
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> › <a href="index.html">AI 工程</a> › Prompt 工程</div>
+  <h1>✍️ Prompt 工程</h1>
+  <div class="meta"><span>编号 AI-05</span><span>分类：Agent 工程</span><span>难度：⭐⭐⭐</span><span>标签：基础能力</span></div>
+</header>
+
+<div class="summary-box">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Prompt 工程不是「怎么写提示词」，而是 <strong>把人类意图结构化地编译成模型可执行的指令</strong>。真正的工程化包括：模板管理、版本控制、效果评估、持续迭代——和写代码一样严肃。</div>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 一句话类比</div>
+  <div class="story-title">Prompt = 给大厨的菜谱，不是「随便做点好吃的」</div>
+  <div class="story-scene">
+    <div class="scene-icon">👨‍🍳</div>
+    <div><span style="color:var(--text-secondary)">你跟大厨说「做点好吃的」——他可能做一桌满汉全席，也可能下碗面。你写清楚「4 人份、预算 200、忌辣、40 分钟上桌、前菜+主菜+甜点」——这才是能稳定交付的菜谱。<br><strong style="color:#fbbf24">Prompt 工程的本质是把模糊需求变成确定性指令。</strong></span></div>
+  </div>
+</section>
+
+<h2 style="color:var(--text-primary); margin-top: 32px;">四种核心模式</h2>
+<div class="pattern-grid">
+  <div class="pattern-card">
+    <div class="pat-name">🎯 角色 + 约束</div>
+    <div class="pat-desc"><strong>「你是谁 + 不做什么」</strong><br>先定义身份边界，再列能力。硬约束祈使句，软约束原则句。例：「你是代码审查专家。你不能直接改代码，只能给建议。」</div>
+  </div>
+  <div class="pattern-card">
+    <div class="pat-name">🧱 结构化输出</div>
+    <div class="pat-desc"><strong>指定输出格式</strong><br>JSON Schema、Markdown 标题层级、表格。不是「写个报告」，而是「输出：1.摘要 2.问题列表 3.建议方案」。</div>
+  </div>
+  <div class="pattern-card">
+    <div class="pat-name">🔄 Few-shot / Chain-of-Thought</div>
+    <div class="pat-desc"><strong>给例子 + 让模型展示推理</strong><br>「请逐步分析，先列问题再给方案。」复杂任务不说「直接给我答案」，强制展示推理过程。</div>
+  </div>
+  <div class="pattern-card">
+    <div class="pat-name">🛡️ Guardrails 嵌入</div>
+    <div class="pat-desc"><strong>在 prompt 里写不可绕过的规则</strong><br>「遇到 X 情况必须先确认。」不是「尽量」，是「必须」。这是 Agent Harness L3 门控层在 prompt 层的投影。</div>
+  </div>
+</div>
+
+<h2 style="color:var(--text-primary);">🎤 面试话术模板</h2>
+
+<div class="script-box" style="background: linear-gradient(135deg, #1e293b 0%, #1a1a2e 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin: 20px 0;">
+  <div class="script-label" style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:700;margin-bottom:8px;">📋 60秒完整版</div>
+  <div class="script-text">我的 Prompt 工程实践不是「怎么写提示词」，而是<strong style="color:#fbbf24">把 prompt 当成代码来管理</strong>：<br><br>
+  ① <strong style="color:#fbbf24">模板化</strong>——所有 prompt 统一 Git 管理，有版本历史，就像管理代码库<br>
+  ② <strong style="color:#fbbf24">效果评估</strong>——每次修改 prompt 后对比输出质量，不是感觉「好像好了一点」<br>
+  ③ <strong style="color:#fbbf24">四种模式</strong>——角色+约束、结构化输出、Few-shot/CoT、Guardrails 嵌入，按场景选用<br>
+  ④ <strong style="color:#fbbf24">CI 集成</strong>——代码提交自动触发 AI Code Review，Review 用的 prompt 同样是版本管理的<br><br>
+  核心认知：prompt 是 Agent 系统的<strong style="color:#fbbf24">配置层</strong>，不是一次性手写的聊天内容。它需要测试、迭代、回滚。</div>
+</div>
+
+<div class="script-box" style="background: linear-gradient(135deg, #1e293b 0%, #1a1a2e 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin: 20px 0;">
+  <div class="script-label" style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:700;margin-bottom:8px;">📋 30秒精简版</div>
+  <div class="script-text">我把 prompt 当代码管——Git 版本控制、模板化复用、效果迭代评估、CI 集成。核心理念是<strong style="color:#fbbf24">prompt 是 Agent 系统的配置层</strong>，不是一次性聊天内容。四种核心模式按场景选用：角色+约束、结构化输出、Few-shot、Guardrails 嵌入。</div>
+</div>
+
+<h2 style="color:var(--text-primary);">🔥 常见追问</h2>
+
+<div class="qa-item">
+  <div class="qa-q">Q: 你的 prompt 效果怎么评估？</div>
+  <div class="qa-a">两个维度：<br>① <strong>格式符合率</strong>——输出是否满足预期的结构（标题层级、字段完整性、禁止项是否出现）<br>② <strong>内容质量</strong>——通过对比修改前后的输出，看是否解决了之前的典型问题（遗漏、幻觉、啰嗦）<br><br>不是靠感觉，而是靠<strong>对比测试</strong>——同一组输入，新老 prompt 各跑一遍，逐项打分。</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: Prompt 工程和 Fine-tuning 怎么选？</div>
+  <div class="qa-a">Prompt 工程是<strong>外部约束</strong>——改指令不改模型，成本低、可快速迭代、可版本管理。Fine-tuning 是<strong>内部参数调整</strong>——改模型本身，成本高、需要训练数据、部署复杂。<br><br>我的选择策略：先 prompt 迭代到天花板，确定 prompt 确实解决不了（比如需要领域特定知识内化），再考虑 fine-tuning。大多数场景 prompt 就够了。</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: 你怎么管理 10 个 Bot 的 prompt？</div>
+  <div class="qa-a">每个 Bot 有自己的 SOUL.md（身份+角色约束），还有共享的 AGENTS.md（通用执行规则）。修改走 Git PR 流程，改完先 dry-run 测试，确认效果后才推送到生产。<br><br>这本质上是<strong>配置即代码</strong>的思路——prompt 就是 Agent 的配置文件，和 nginx.conf 一样需要版本管理。</div>
+</div>
+
+<div class="page-footer">来财出品 · Go 后端面试训练营 · 2026.05.27</div>
+</div>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("../sw.js").catch(function(err){console.log("SW registration failed:",err);});}</script>
+</body></html>

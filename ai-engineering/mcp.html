@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-03 MCP 协议 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="面试训练营"><meta name="theme-color" content="#1a1a2e"><link rel="apple-touch-icon" href="../icon-192.png">
+<style>
+  .qa-item { margin-bottom: 16px; }
+  .qa-q { font-weight: 700; color: var(--accent); font-size: 14px; margin-bottom: 6px; }
+  .qa-a { color: var(--text-secondary); font-size: 14px; line-height: 1.7; padding-left: 16px; border-left: 2px solid var(--border); }
+</style>
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html">Go</a><a href="../mysql/index.html">MySQL</a><a href="../redis/index.html">Redis</a><a href="../linux/index.html">Linux</a><a href="../mq/index.html">MQ</a><a href="../docker/index.html">Docker</a><a href="../k8s/index.html">K8s</a><a href="../cicd/index.html">CI/CD</a><a href="../system-design/index.html">系统设计</a><a href="index.html" class="active">AI 工程</a>
+</nav>
+<div class="container">
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> › <a href="index.html">AI 工程</a> › MCP 协议</div>
+  <h1>🔌 MCP 协议</h1>
+  <div class="meta"><span>编号 AI-03</span><span>分类：Agent 工程</span><span>难度：⭐⭐⭐⭐</span><span>标签：工具链核心</span></div>
+</header>
+
+<div class="summary-box">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">MCP（Model Context Protocol）是 <strong>AI 模型的 USB-C 接口</strong>——定义了一套标准协议让 LLM 安全地调用外部工具和数据源，替代了过去每个工具各写一套胶水代码的局面。我用它在自己的 Agent 系统中统一管理工具接入。</div>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 一句话类比</div>
+  <div class="story-title">MCP = AI 世界的 USB-C</div>
+  <div class="story-scene">
+    <div class="scene-icon">🔌</div>
+    <div><span style="color:var(--text-secondary)">以前每个设备有自己的充电口——Micro-USB、Lightning、DC 圆口。USB-C 统一了物理接口。<br><strong style="color:#fbbf24">MCP 统一了 AI 调用外部工具的协议接口</strong>——不管是查数据库、调 API 还是读文件，都用同一套协议。你不需要为每个工具写 adapter 了。</span></div>
+  </div>
+</section>
+
+<h2 style="color:var(--text-primary); margin-top: 32px;">🎤 面试话术模板</h2>
+
+<div class="script-box" style="background: linear-gradient(135deg, #1e293b 0%, #1a1a2e 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin: 20px 0;">
+  <div class="script-label" style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:700;margin-bottom:8px;">📋 60秒完整版</div>
+  <div class="script-text">MCP 是 Anthropic 开源的 <strong style="color:#fbbf24">Model Context Protocol</strong>，可以理解为 AI 模型与外部工具的<strong style="color:#fbbf24">标准化通信协议</strong>。<br><br>
+  它的核心价值是 <strong style="color:#fbbf24">统一工具接入层</strong>——传统做法里，每个工具（数据库、文件系统、API）都要单独写对接代码，MCP 之后工具提供方实现一个 MCP Server，AI 客户端通过 MCP Client 统一调用。<br><br>
+  我在实际项目里：<br>
+  ① 用 MCP 接入 Jira/Confluence API，Agent 可以直接查 Issue 和 Wiki<br>
+  ② 通过 MCP 暴露文件系统和 Shell 给 Agent，但按<strong style="color:#fbbf24">操作粒度</strong>限制权限（读/写/执行分开）<br>
+  ③ 理解 MCP 的 <strong style="color:#fbbf24">Tools/Prompts/Resources</strong> 三种原语——不是所有能力都叫 Tool，静态知识应该用 Resource 暴露</div>
+</div>
+
+<div class="script-box" style="background: linear-gradient(135deg, #1e293b 0%, #1a1a2e 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin: 20px 0;">
+  <div class="script-label" style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:700;margin-bottom:8px;">📋 30秒精简版</div>
+  <div class="script-text">MCP 是 AI 调用外部工具的<strong style="color:#fbbf24">标准协议层</strong>——就像 USB-C 统一了硬件接口。它解决的核心问题是：以前每个工具要单独写 adapter，现在工具提供方实现一个 MCP Server，AI 统一通过 MCP Client 调用。我在 Agent 系统里用它统一管理 Jira、文件系统、Shell 等工具的接入和权限控制。</div>
+</div>
+
+<h2 style="color:var(--text-primary);">🔥 常见追问</h2>
+
+<div class="qa-item">
+  <div class="qa-q">Q: MCP 和 Function Calling 有什么区别？</div>
+  <div class="qa-a">Function Calling 是<strong>单次调用的格式约定</strong>（OpenAI 定义的工具调用 JSON schema），MCP 是<strong>持续连接的协议层</strong>。打个比方：Function Calling 是「打电话说一件事」，MCP 是「专线电话」——建立连接后可以持续双向通信。MCP 还多了 Resource（静态知识暴露）和 Prompt Templates（可复用提示模板），比纯 Function Calling 更完整。</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: MCP 的 Tools、Prompts、Resources 分别是什么？</div>
+  <div class="qa-a"><strong>Tools</strong>：模型可以调用的可执行函数（查数据库、调 API）<br><strong>Prompts</strong>：预定义的提示模板，用户选择后注入对话（代码审查模板、commit 消息模板）<br><strong>Resources</strong>：静态数据暴露（文档、schema、配置），模型可以读取但不执行<br><br>很多新手把所有能力都塞进 Tools，这是错的——文档应该用 Resource，模板应该用 Prompt。</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: 怎么保证 MCP 调用的安全性？</div>
+  <div class="qa-a">三个层面：<br>① <strong>操作粒度白名单</strong>——不是「允许访问文件系统」，而是「允许读 workspace 目录」「允许执行白名单命令」<br>② <strong>用户确认机制</strong>——高风险操作（删除、外部发送）必须经过用户确认，类似 sudo<br>③ <strong>沙箱隔离</strong>——MCP Server 运行在受限环境中，不能随意访问宿主机<br><br>这和我在 Agent Harness 五层架构中的「能力层 + 门控层」是一脉相承的。</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: 你在项目中实际用过 MCP 吗？</div>
+  <div class="qa-a">用过。我的 10 个 Bot Agent 团队中，通过 MCP 接入了 Jira API、Confluence Wiki、文件系统和 Shell。核心实践是<strong>不直接暴露原始能力</strong>——比如文件系统不暴露「读写任意路径」，而是封装成「读 workspace」「写 memory 目录」等有限操作，这样即使 Agent 被恶意 prompt 攻击，破坏范围也是可控的。</div>
+</div>
+
+<div class="page-footer">来财出品 · Go 后端面试训练营 · 2026.05.27</div>
+</div>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("../sw.js").catch(function(err){console.log("SW registration failed:",err);});}</script>
+</body></html>

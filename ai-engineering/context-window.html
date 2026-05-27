@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-06 Context Window — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="面试训练营"><meta name="theme-color" content="#1a1a2e"><link rel="apple-touch-icon" href="../icon-192.png">
+<style>
+  .qa-item { margin-bottom: 16px; }
+  .qa-q { font-weight: 700; color: var(--accent); font-size: 14px; margin-bottom: 6px; }
+  .qa-a { color: var(--text-secondary); font-size: 14px; line-height: 1.7; padding-left: 16px; border-left: 2px solid var(--border); }
+</style>
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html">Go</a><a href="../mysql/index.html">MySQL</a><a href="../redis/index.html">Redis</a><a href="../linux/index.html">Linux</a><a href="../mq/index.html">MQ</a><a href="../docker/index.html">Docker</a><a href="../k8s/index.html">K8s</a><a href="../cicd/index.html">CI/CD</a><a href="../system-design/index.html">系统设计</a><a href="index.html" class="active">AI 工程</a>
+</nav>
+<div class="container">
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> › <a href="index.html">AI 工程</a> › Context Window</div>
+  <h1>🪟 Context Window</h1>
+  <div class="meta"><span>编号 AI-06</span><span>分类：Agent 工程</span><span>难度：⭐⭐⭐⭐⭐</span><span>标签：核心概念 · 必问</span></div>
+</header>
+
+<div class="summary-box">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Context Window 是 LLM 的 <strong>「工作记忆」容量上限</strong>——模型一次能「看到」多少 token。它不是越大越好：更大的窗口意味着更高的成本和更低的注意力密度（Lost in the Middle 效应）。工程化的关键是 <strong>Context Engineering</strong>——不是塞更多内容，而是塞对的内容。</div>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 一句话类比</div>
+  <div class="story-title">Context Window = 你的办公桌面</div>
+  <div class="story-scene">
+    <div class="scene-icon">🪟</div>
+    <div><span style="color:var(--text-secondary)">桌面只有这么大——摊开 5 份文件还能看，摊开 50 份就什么都找不到了。<br><strong style="color:#fbbf24">Context Window 同理</strong>——塞 200K token 进去，模型对中间部分的注意力急剧下降（Lost in the Middle）。不是「加内存」就解决，而是<strong style="color:#34d399">放什么、放多少、什么时候换</strong>——这才是 Context Engineering 的工程价值。</span></div>
+  </div>
+</section>
+
+<h2 style="color:var(--text-primary); margin-top: 32px;">🎤 面试话术模板</h2>
+
+<div class="script-box" style="background: linear-gradient(135deg, #1e293b 0%, #1a1a2e 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin: 20px 0;">
+  <div class="script-label" style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:700;margin-bottom:8px;">📋 60秒完整版</div>
+  <div class="script-text">Context Window 的本质是<strong style="color:#fbbf24">模型的注意力预算</strong>——不是内存，是注意力。<br><br>
+  关键认知：<br>
+  ① <strong style="color:#fbbf24">Lost in the Middle</strong>——论文证明模型对 context 开头和结尾的内容注意力强，中间部分急剧衰减。不是「128K 窗口就能喂 128K 内容」<br>
+  ② <strong style="color:#fbbf24">Context 是护城河</strong>——Google 的 Gemini 200K、Claude 200K 都是竞争壁垒。因为高质量 context 管理 = 更好的 Agent 决策质量<br>
+  ③ <strong style="color:#fbbf24">工程实践三原则</strong>：Progressive Disclosure（渐进加载）、Compaction（定期压缩）、Prioritization（高价值内容靠前）<br><br>
+  我在 Agent 系统里落地：Skills 按需加载（不是全塞）、记忆分层淘汰（T1→T2→T3）、对话过长时自动摘要压缩——目标不是「塞满窗口」，而是<strong style="color:#fbbf24">让窗口里的每个 token 都值得花注意力</strong>。</div>
+</div>
+
+<div class="script-box" style="background: linear-gradient(135deg, #1e293b 0%, #1a1a2e 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin: 20px 0;">
+  <div class="script-label" style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:700;margin-bottom:8px;">📋 30秒精简版</div>
+  <div class="script-text">Context Window 是模型的<strong style="color:#fbbf24">注意力预算</strong>，不是内存。核心挑战是 Lost in the Middle——中间部分注意力断崖下降。我的工程策略：Skills 按需加载、记忆分层淘汰、长对话自动压缩。目标是让窗口里的每个 token 都值得模型的注意力，而不是无脑塞满。</div>
+</div>
+
+<h2 style="color:var(--text-primary);">🔥 常见追问</h2>
+
+<div class="qa-item">
+  <div class="qa-q">Q: Lost in the Middle 是什么？怎么应对？</div>
+  <div class="qa-a">斯坦福/伯克利论文发现：模型对 context 开头 25% 和末尾 25% 的内容召回率最高，中间 50% <strong>断崖式下降</strong>——尤其在多文档问答场景。<br><br>工程应对：<br>① 最重要的信息放<strong>开头或结尾</strong>，不要埋在中间<br>② 减少总 token 数——用摘要替代全文，用指令替代啰嗦描述<br>③ 分块处理——长文档分多次推理，每次上下文短而精</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: 你说的 Compaction 具体怎么实现？</div>
+  <div class="qa-a">Compaction 是<strong>定期把长对话压缩成摘要</strong>——就像 Git 的 squash commit。<br><br>触发条件：对话 token 数超过阈值（如 50K），或者新任务开始前。<br><br>压缩策略：保留决策结论、丢弃重复内容、保留待办事项。压缩后的摘要替代原始对话注入下一轮 context。<br><br>核心原则：<strong>保留「后续决策需要知道的信息」，丢掉「已经执行完的过程描述」</strong>。</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: Context Window 越来越大，还需要 Context Engineering 吗？</div>
+  <div class="qa-a">更需要。<br><br>三个原因：<br>① <strong>成本</strong>——200K token 的推理成本远高于 10K，按 API 调用量算，塞满窗口月费可以差 10 倍<br>② <strong>延迟</strong>——更大的 context 意味着更长的首 token 延迟，影响用户体验<br>③ <strong>注意力稀释</strong>——窗口再大，Lost in the Middle 依然存在。问题不在容量，在信息密度<br><br>所以结论是反直觉的：<strong>窗口越大，Context Engineering 越重要</strong>。因为你有更多空间可以浪费，但浪费的代价也更高。</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: 你在实际项目中怎么管理 context？</div>
+  <div class="qa-a">四个机制：<br>① <strong>Progressive Disclosure</strong>——Skills 先加载目录（名称+一行描述），用户选择后才加载全文<br>② <strong>分层记忆</strong>——T1 热数据常驻、T2 温数据按需加载、T3 精华永久保留但精简<br>③ <strong>Compaction 自动摘要</strong>——长对话超过阈值自动触发压缩，保留关键决策丢弃过程描述<br>④ <strong>子 Agent 隔离</strong>——大任务拆给子 Agent，每个子 Agent 独立 context，不相互污染</div>
+</div>
+
+<div class="page-footer">来财出品 · Go 后端面试训练营 · 2026.05.27</div>
+</div>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("../sw.js").catch(function(err){console.log("SW registration failed:",err);});}</script>
+</body></html>

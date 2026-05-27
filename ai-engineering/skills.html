@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-04 Skills 机制 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="面试训练营"><meta name="theme-color" content="#1a1a2e"><link rel="apple-touch-icon" href="../icon-192.png">
+<style>
+  .qa-item { margin-bottom: 16px; }
+  .qa-q { font-weight: 700; color: var(--accent); font-size: 14px; margin-bottom: 6px; }
+  .qa-a { color: var(--text-secondary); font-size: 14px; line-height: 1.7; padding-left: 16px; border-left: 2px solid var(--border); }
+  .diff-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  .diff-table th { text-align: left; padding: 8px 12px; background: rgba(56,189,248,.1); color: var(--accent); border-bottom: 1px solid var(--border); }
+  .diff-table td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,.05); color: var(--text-secondary); }
+</style>
+</head>
+<body>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html">Go</a><a href="../mysql/index.html">MySQL</a><a href="../redis/index.html">Redis</a><a href="../linux/index.html">Linux</a><a href="../mq/index.html">MQ</a><a href="../docker/index.html">Docker</a><a href="../k8s/index.html">K8s</a><a href="../cicd/index.html">CI/CD</a><a href="../system-design/index.html">系统设计</a><a href="index.html" class="active">AI 工程</a>
+</nav>
+<div class="container">
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> › <a href="index.html">AI 工程</a> › Skills 机制</div>
+  <h1>📦 Skills 机制</h1>
+  <div class="meta"><span>编号 AI-04</span><span>分类：Agent 工程</span><span>难度：⭐⭐⭐⭐</span><span>标签：工具链核心</span></div>
+</header>
+
+<div class="summary-box">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Skills = <strong>AI Agent 的可复用知识插件</strong>——把「怎么用某个工具/完成某类任务」封装成按需加载的模块，而不是把所有知识全塞进 system prompt。核心理念：<strong>技术定义（MCP/Tools）和业务指导（Skills）分离</strong>。</div>
+</div>
+
+<section class="story-section">
+  <div class="story-label">🎬 一句话类比</div>
+  <div class="story-title">Skills = 外卖骑手的导航 App</div>
+  <div class="story-scene">
+    <div class="scene-icon">🛵</div>
+    <div><span style="color:var(--text-secondary)">骑手不需要记住全城每一条路——他打开导航 App，导航告诉他「这个订单怎么送最优」。<br><strong style="color:#fbbf24">Skills 就是 Agent 的导航 App</strong>——用 Docker 时加载 Docker Skill，用 K8s 时加载 K8s Skill。不加载时这些知识不在 context 里，省 token、防干扰。</span></div>
+  </div>
+</section>
+
+<h2 style="color:var(--text-primary); margin-top: 32px;">MCP vs Skills — 职责分离</h2>
+<table class="diff-table">
+  <tr><th>维度</th><th>MCP / Tools</th><th>Skills</th></tr>
+  <tr><td>定位</td><td>工具箱（能做什么）</td><td>使用说明书（怎么做）</td></tr>
+  <tr><td>内容</td><td>API 定义、函数签名、权限</td><td>最佳实践、工作流、故障排查</td></tr>
+  <tr><td>加载</td><td>建立连接后常驻</td><td>按需加载、用完释放</td></tr>
+  <tr><td>类比</td><td>Docker CLI 的可执行命令</td><td>Docker 最佳实践文档</td></tr>
+  <tr><td>更新频率</td><td>低（接口稳定）</td><td>高（经验持续沉淀）</td></tr>
+</table>
+
+<h2 style="color:var(--text-primary);">🎤 面试话术模板</h2>
+
+<div class="script-box" style="background: linear-gradient(135deg, #1e293b 0%, #1a1a2e 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin: 20px 0;">
+  <div class="script-label" style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:700;margin-bottom:8px;">📋 60秒完整版</div>
+  <div class="script-text"><strong style="color:#fbbf24">Skills 是 AI Agent 的可复用知识插件系统，核心理念是「技术定义和业务指导分离」。</strong><br><br>
+  MCP/Tools 负责「能调用什么」——是技术契约，docstring 保持精简；Skills 负责「怎么用好」——是工作流、最佳实践、故障排查手册。<br><br>
+  设计原则：<br>
+  ① <strong style="color:#fbbf24">按需加载</strong>——不把所有 Skill 全塞进 system prompt，触发时才读取注入，省 token、防干扰<br>
+  ② <strong style="color:#fbbf24">渐进式加载</strong>——先用简短目录（名称+描述），用户选择后再加载 SKILL.md 全文<br>
+  ③ <strong style="color:#fbbf24">五维审计标准</strong>——我建立了一套评估体系：格式约束/证据绑定/失败恢复/验证纪律/决策规则各 5 分，满分 25，低于 15 分不准启用</div>
+</div>
+
+<div class="script-box" style="background: linear-gradient(135deg, #1e293b 0%, #1a1a2e 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin: 20px 0;">
+  <div class="script-label" style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:700;margin-bottom:8px;">📋 30秒精简版</div>
+  <div class="script-text">Skills 是<strong style="color:#fbbf24">Agent 的按需知识插件</strong>——MCP 告诉你「能调用什么」，Skills 告诉你「怎么用好」。我用它管理 113 个专业技能的加载和审计，核心理念是技术定义和业务指导分离，避免把所有说明书塞进 system prompt。还建立了一套五维审计标准评估每个 Skill 的质量。</div>
+</div>
+
+<h2 style="color:var(--text-primary);">🔥 常见追问</h2>
+
+<div class="qa-item">
+  <div class="qa-q">Q: 为什么要把 MCP 和 Skills 分开？</div>
+  <div class="qa-a">因为它们的<strong>生命周期完全不同</strong>。MCP Server 的接口相对稳定（Docker API 不会天天变），但最佳实践会持续演进（「这个镜像构建技巧」是踩坑踩出来的）。<br><br>把它们混在一起有两个代价：① 修改 Skill 内容时需要重新部署 MCP Server；② system prompt 爆炸——113 个 Skill 的全文塞进去 model 直接超时。</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: 五维审计标准是什么？</div>
+  <div class="qa-a">我建立的一套 Skill 质量评估体系：<br>① <strong>格式约束</strong>（5分）——输出有没有「别写废话」的规定<br>② <strong>证据绑定</strong>（5分）——查到的东西要不要独立验证<br>③ <strong>失败恢复</strong>（5分）——一个步骤挂了，下一步做什么<br>④ <strong>验证纪律</strong>（5分）——任务完成后有没有自检清单<br>⑤ <strong>决策规则</strong>（5分）——多选项时按什么规则选<br><br>满分 25，低于 15 分的不准启用。这套标准来自微软 SkillOpt 论文的 bounded edit + validation gate 理念。</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: Skills 机制和 RAG 有什么区别？</div>
+  <div class="qa-a">RAG 是<strong>通用知识检索</strong>——喂文档、建索引、语义搜索，适合「这段代码怎么写」这类开放问题。<br><br>Skills 是<strong>程序性知识</strong>——它是一套操作流程：「第一步检查配置，第二步执行命令，第三步验证结果」。不是检索一段文档，而是执行一套工作流。<br><br>实际项目中两者互补：RAG 查「Redis 持久化原理」，Skills 指导「现在给这个项目加 Redis 缓存怎么做」。</div>
+</div>
+
+<div class="page-footer">来财出品 · Go 后端面试训练营 · 2026.05.27</div>
+</div>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("../sw.js").catch(function(err){console.log("SW registration failed:",err);});}</script>
+</body></html>
