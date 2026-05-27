@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-02 Agent Harness 5层架构 — 面试训练营</title>
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- PWA -->
+<link rel="manifest" href="../manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面试训练营">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="apple-touch-icon" href="../icon-192.png">
+
+<style>
+  .harness-layers { display: flex; flex-direction: column; gap: 16px; margin: 24px 0; }
+  .layer-card { background: var(--bg-card); border-radius: var(--radius); padding: 20px 24px; border-left: 4px solid transparent; transition: all .3s; }
+  .layer-card:hover { background: var(--bg-card-hover); transform: translateX(4px); }
+  .layer-card.l1 { border-left-color: #f59e0b; }
+  .layer-card.l2 { border-left-color: #3b82f6; }
+  .layer-card.l3 { border-left-color: #ef4444; }
+  .layer-card.l4 { border-left-color: #10b981; }
+  .layer-card.l5 { border-left-color: #8b5cf6; }
+  .layer-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .layer-num { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #fff; }
+  .l1 .layer-num { background: #f59e0b; } .l2 .layer-num { background: #3b82f6; }
+  .l3 .layer-num { background: #ef4444; } .l4 .layer-num { background: #10b981; }
+  .l5 .layer-num { background: #8b5cf6; }
+  .layer-name { font-weight: 700; font-size: 18px; color: var(--text-primary); }
+  .layer-en { font-size: 12px; color: var(--text-muted); }
+  .layer-one-liner { color: var(--text-secondary); margin-bottom: 10px; font-size: 14px; }
+  .layer-detail { display: flex; flex-wrap: wrap; gap: 8px; }
+  .layer-tag { font-size: 12px; background: rgba(255,255,255,.06); padding: 4px 10px; border-radius: 6px; color: var(--text-muted); }
+  .layer-tag.practice { background: rgba(52,211,153,.12); color: #34d399; font-weight: 600; }
+
+  .script-box { background: linear-gradient(135deg, #1e293b 0%, #1a1a2e 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin: 20px 0; }
+  .script-box .script-label { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); font-weight: 700; margin-bottom: 8px; }
+  .script-box .script-text { color: var(--text-primary); font-size: 15px; line-height: 1.8; }
+  .script-box .script-text .highlight { color: #fbbf24; font-weight: 600; }
+
+  .qa-item { margin-bottom: 16px; }
+  .qa-q { font-weight: 700; color: var(--accent); font-size: 14px; margin-bottom: 6px; }
+  .qa-a { color: var(--text-secondary); font-size: 14px; line-height: 1.7; padding-left: 16px; border-left: 2px solid var(--border); }
+
+  .dep-graph { text-align: center; padding: 24px; background: var(--bg-card); border-radius: var(--radius); margin: 20px 0; }
+  .dep-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+  .dep-node { padding: 6px 14px; border-radius: 6px; font-weight: 600; }
+  .dep-node.fail { background: rgba(239,68,68,.15); color: #f87171; }
+  .dep-node.pass { background: rgba(52,211,153,.10); color: #34d399; }
+  .dep-arrow { color: var(--text-muted); font-size: 18px; }
+  .dep-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-home">🧧 面试训练营</a>
+  <a href="../go/index.html" class="go-link">Go</a>
+  <a href="../mysql/index.html" class="mysql-link">MySQL</a>
+  <a href="../redis/index.html" class="redis-link">Redis</a>
+  <a href="../linux/index.html" class="linux-link">Linux</a>
+  <a href="../mq/index.html" class="mq-link">MQ</a>
+  <a href="../docker/index.html" class="docker-link">Docker</a>
+  <a href="../k8s/index.html" class="k8s-link">K8s</a>
+  <a href="../cicd/index.html" class="cicd-link">CI/CD</a>
+  <a href="../system-design/index.html" class="sd-link">系统设计</a>
+  <a href="index.html" class="ai-link active">AI 工程</a>
+</nav>
+
+<div class="container">
+
+<header class="interview-header">
+  <div class="breadcrumb"><a href="../index.html">首页</a> › <a href="index.html">AI 工程</a> › Agent Harness 五层架构</div>
+  <h1>🏗️ Agent Harness 五层架构</h1>
+  <div class="meta">
+    <span>编号 AI-02</span>
+    <span>分类：系统设计 · Agent 工程</span>
+    <span>难度：⭐⭐⭐⭐⭐</span>
+    <span>标签：差异化必杀技</span>
+  </div>
+</header>
+
+<div class="summary-box">
+  <div class="label">💡 一句话结论</div>
+  <div class="one-liner">Agent Harness 是 Agent 的操作系统——从身份定义到多 Agent 编排，五层递进：<strong>身份（Identity）→ 能力（Capabilities）→ 门控（Guardrails）→ 记忆（Memory）→ 编排（Orchestration）</strong>。下层出错上层全部失效，所以设计必须从第一层开始逐层收敛。</div>
+</div>
+
+<!-- ====== 🎬 生活类比 ====== -->
+<section class="story-section">
+  <div class="story-label">🎬 生活类比 — 用「造房子」看懂五层架构</div>
+  <div class="story-title">为什么顺序不能乱？</div>
+
+  <div class="story-scene">
+    <div class="scene-icon">🏠</div>
+    <div>
+      <strong style="color:var(--accent)">盖一栋智能建筑</strong><br>
+      <span style="color:var(--text-secondary)">
+        <strong style="color:#f59e0b">L1 身份</strong>：这是医院还是商场？先定义用途。<br>
+        <strong style="color:#3b82f6">L2 能力</strong>：允许进哪些房间？手术室需要刷卡。<br>
+        <strong style="color:#ef4444">L3 门控</strong>：药房双人核对——一个人不能取药。<br>
+        <strong style="color:#10b981">L4 记忆</strong>：病历系统——上次来开了什么药。<br>
+        <strong style="color:#8b5cf6">L5 编排</strong>：挂号→看诊→取药——流程不能反。<br><br>
+        <em>反模式：先装智能门锁（L3）再决定这楼是干嘛的（L1）→ 门锁装错位置全白费。</em>
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- ====== 五层架构详解 ====== -->
+<h2 style="color:var(--text-primary); margin-top: 32px;">🧱 五层架构详解</h2>
+<div class="harness-layers">
+
+  <div class="layer-card l1">
+    <div class="layer-header">
+      <div class="layer-num">1</div>
+      <div>
+        <div class="layer-name">身份层 Identity</div>
+        <div class="layer-en">"你是谁" → 角色先于能力</div>
+      </div>
+    </div>
+    <div class="layer-one-liner">System Prompt 不是工具说明书。先定义 Agent 的「不做什么」，再列「能做什么」。</div>
+    <div class="layer-detail">
+      <span class="layer-tag">否决条件 > 能力清单</span>
+      <span class="layer-tag">硬约束用祈使句</span>
+      <span class="layer-tag">软约束用原则句</span>
+      <span class="layer-tag practice">实战：SOUL.md 角色定义先于工具列表</span>
+    </div>
+  </div>
+
+  <div class="layer-card l2">
+    <div class="layer-header">
+      <div class="layer-num">2</div>
+      <div>
+        <div class="layer-name">能力层 Capabilities</div>
+        <div class="layer-en">"你能碰什么" → 操作粒度隔离</div>
+      </div>
+    </div>
+    <div class="layer-one-liner">工具白名单精确到操作粒度（读/写/执行分开），不是整块 file access。网络访问按「能力」建模，不是「可以上网」。</div>
+    <div class="layer-detail">
+      <span class="layer-tag">先环境层后模型层</span>
+      <span class="layer-tag">出站白名单按能力授权</span>
+      <span class="layer-tag">隔离强度匹配用户监督能力</span>
+      <span class="layer-tag practice">实战：Agent 只能写 workspace，不能碰系统文件</span>
+    </div>
+  </div>
+
+  <div class="layer-card l3">
+    <div class="layer-header">
+      <div class="layer-num">3</div>
+      <div>
+        <div class="layer-name">门控层 Guardrails</div>
+        <div class="layer-en">"什么绝对不能做" → 硬约束不可绕过</div>
+      </div>
+    </div>
+    <div class="layer-one-liner">每一步跳过必须有可验证的条件，不是 Agent「觉得没必要」。子 Agent 声称「文件已写入」→ 必须验证。</div>
+    <div class="layer-detail">
+      <span class="layer-tag">held-out gate 硬门控</span>
+      <span class="layer-tag">验证优先于信任</span>
+      <span class="layer-tag">去重是门控的一种</span>
+      <span class="layer-tag">失败必须可见</span>
+      <span class="layer-tag practice">实战：OTC 确认码机制 / 子 Agent 产出验证协议</span>
+    </div>
+  </div>
+
+  <div class="layer-card l4">
+    <div class="layer-header">
+      <div class="layer-num">4</div>
+      <div>
+        <div class="layer-name">记忆层 Memory</div>
+        <div class="layer-en">"你记得什么，记得多久" → 分层淘汰</div>
+      </div>
+    </div>
+    <div class="layer-one-liner">热数据 7 天 → 温数据 30 天 → 精华永久。写便宜读贵，所以要有自动 promote 机制。</div>
+    <div class="layer-detail">
+      <span class="layer-tag">T1/T2/T3 三层淘汰</span>
+      <span class="layer-tag">多级降级搜索路径</span>
+      <span class="layer-tag">搜索结果标注置信度</span>
+      <span class="layer-tag practice">实战：brain-first-lookup 5步查找链 / WAL 先写后回</span>
+    </div>
+  </div>
+
+  <div class="layer-card l5">
+    <div class="layer-header">
+      <div class="layer-num">5</div>
+      <div>
+        <div class="layer-name">编排层 Orchestration</div>
+        <div class="layer-en">"谁在什么时候做什么" → Pipeline 优于 Supervisor</div>
+      </div>
+    </div>
+    <div class="layer-one-liner">线性管道不需要 Agent 框架。自治 Agent 必须有记忆闭环——cron job 对自身历史产出无感知是设计盲区。</div>
+    <div class="layer-detail">
+      <span class="layer-tag">Pipeline > Supervisor</span>
+      <span class="layer-tag">context_from 链式注入</span>
+      <span class="layer-tag">子 Agent 验证协议</span>
+      <span class="layer-tag practice">实战：10 bot 团队分工 + 失败传播边界定义</span>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 依赖关系图 ====== -->
+<h2 style="color:var(--text-primary);">📐 层间依赖关系</h2>
+<div class="dep-graph">
+  <div class="dep-row">
+    <span class="dep-node fail">L1 身份错</span>
+    <span class="dep-arrow">→</span>
+    <span class="dep-node fail">所有决策偏离</span>
+  </div>
+  <div class="dep-arrow" style="font-size:20px">↓</div>
+  <div class="dep-row">
+    <span class="dep-node fail">L2 能力不设限</span>
+    <span class="dep-arrow">→</span>
+    <span class="dep-node fail">门控形同虚设</span>
+  </div>
+  <div class="dep-arrow" style="font-size:20px">↓</div>
+  <div class="dep-row">
+    <span class="dep-node fail">L3 门控缺失</span>
+    <span class="dep-arrow">→</span>
+    <span class="dep-node fail">Agent 绕过所有约束</span>
+  </div>
+  <div class="dep-arrow" style="font-size:20px">↓</div>
+  <div class="dep-row">
+    <span class="dep-node fail">L4 记忆丢失</span>
+    <span class="dep-arrow">→</span>
+    <span class="dep-node fail">编排失去上下文</span>
+  </div>
+  <div class="dep-arrow" style="font-size:20px">↓</div>
+  <div class="dep-row">
+    <span class="dep-node fail">L5 编排断裂</span>
+    <span class="dep-arrow">→</span>
+    <span class="dep-node fail">系统不可观测、不可恢复</span>
+  </div>
+</div>
+
+<!-- ====== 🎤 一分钟话术 ====== -->
+<h2 style="color:var(--text-primary);">🎤 一分钟话术模板</h2>
+
+<div class="script-box">
+  <div class="script-label">📋 面试标准版（60秒）</div>
+  <div class="script-text">
+    我从第一性原理推导了一套 <span class="highlight">Agent Harness 五层架构</span>——这不是「用 AI 工具」，而是<span class="highlight">设计 Agent 的操作系统</span>。<br><br>
+    五层从下到上：<br>
+    <span class="highlight">L1 身份层</span>——先定义 Agent 不做什么，再列能做什么<br>
+    <span class="highlight">L2 能力层</span>——工具白名单精确到操作粒度，不是「可以上网」<br>
+    <span class="highlight">L3 门控层</span>——不可绕过的硬约束，子 Agent 产出必须验证<br>
+    <span class="highlight">L4 记忆层</span>——三层淘汰，写便宜读贵，自动 promote<br>
+    <span class="highlight">L5 编排层</span>——Pipeline 优于 Supervisor，自治 Agent 必须有记忆闭环<br><br>
+    设计原则很简单：<span class="highlight">下层出错，上层全部失效</span>。身份定义错了，后面的能力、门控、记忆全都白做。所以我们从 L1 开始逐层设计，不是反过来。
+  </div>
+</div>
+
+<div class="script-box">
+  <div class="script-label">📋 精简版（30秒·电梯演讲）</div>
+  <div class="script-text">
+    我的 AI 工程核心不是「用工具」，而是<span class="highlight">设计 Agent 的操作系统</span>。从身份到编排五层递进——先定义 Agent 是谁，再控制它能碰什么，再设不可绕过的硬门控，再建分层记忆，最后编排多 Agent 协作。<span class="highlight">下层出错上层全部失效</span>，所以设计必须从身份层开始逐层收敛。这套方法论来自部署 10 个 Bot 协作的实战经验。
+  </div>
+</div>
+
+<!-- ====== 🔥 面试官追问 ====== -->
+<h2 style="color:var(--text-primary);">🔥 常见追问 & 回答</h2>
+
+<div class="qa-item">
+  <div class="qa-q">Q: 这和普通的「用 AI 工具」有什么区别？</div>
+  <div class="qa-a">
+    普通人用 AI：打开 ChatGPT 问问题。<br>
+    工程师用 AI：把 Claude Code 接入开发流程。<br>
+    我做的是 <strong>设计 Agent 的运转规则</strong>——它在什么条件下可以跳过某一步？它的产出谁来验证？它的记忆什么时候淘汰？<br><br>
+    打个比方：普通人用 ChatGPT 就像租车开；工程师用 Claude Code 就像自己改装车；我做的五层架构是 <strong>设计交通规则和车辆安全标准</strong>——不针对某一辆车，而是让所有车安全运转。
+  </div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: 你说「子 Agent 产出必须验证」，具体怎么验证？</div>
+  <div class="qa-a">
+    三个层面：<br>
+    ① <strong>存在性验证</strong>——子 Agent 说「文件写好了」，主 Agent 用 find/grep 确认文件确实存在<br>
+    ② <strong>内容正确性</strong>——抽样检查输出内容是否符合预期格式<br>
+    ③ <strong>不重复验证</strong>——cron job 写入前先扫描历史产物，避免重复生成<br><br>
+    来源是真实踩坑：子 Agent 声称完成但文件未落盘，导致静默失败。
+  </div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: 记忆层为什么要分层淘汰？</div>
+  <div class="qa-a">
+    因为 Agent 的 context window 有限，记忆会膨胀。<br>
+    T1（7天热数据）保证最近的决策能快速召回<br>
+    T2（30天温数据）保留阶段脉络<br>
+    T3（精华永久）沉淀跨场景通用的经验<br><br>
+    核心原则是「读写不对称」——写入成本低（一句话的事），读取成本高（要搜要推理）。所以要有自动 promote 机制，把高价值记忆从 T1 升到 T3，而不是永远手工整理。
+  </div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: Pipeline 优于 Supervisor 是什么意思？</div>
+  <div class="qa-a">
+    很多团队一上来就搞 Agent 框架，让 AI 自己决策、自己调度。<br>
+    我的实践是：<strong>确定性流程不需要 Agent 框架</strong>。如果流程是 A→B→C 固定顺序，用 cron + script 就够了。<br>
+    什么时候才需要 Agent？当步骤之间需要<strong>非确定性判断</strong>——比如「这段代码需要 refactor 吗？」需要 AI 决策。否则就是在用大炮打蚊子。<br>
+    另一个关键是「自治 Agent 的记忆闭环」——cron job 如果不知道自己上次写过什么，就会重复产出。必须显式扫描历史。
+  </div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Q: 这套方法论有什么实际效果？</div>
+  <div class="qa-a">
+    三项可量化：<br>
+    ① <strong>零静默失败</strong>——子 Agent 产出验证协议覆盖所有自动化流程，Agent 协作事故率从「偶发」降到零<br>
+    ② <strong>去重闭环</strong>——自治 cron job 写入前扫描历史，公众号选题等场景杜绝重复生成<br>
+    ③ <strong>知识传承</strong>——bot-shared-knowledge 开源仓库，新 Bot 通过知识库自学上手，无需人工培训<br><br>
+    定性效果：多 Agent 团队从「能用」升级到「可观测、可恢复、可审计」。
+  </div>
+</div>
+
+<!-- ====== 🎯 面试策略 ====== -->
+<section style="margin-top: 32px;">
+  <h2 style="color:var(--text-primary);">🎯 面试中的战术用法</h2>
+  <div class="story-section">
+    <div class="story-scene">
+      <div class="scene-icon">🥊</div>
+      <div>
+        <strong style="color:#fbbf24">何时主动抛出</strong><br>
+        <span style="color:var(--text-secondary)">
+          当面试官问「你做过什么 AI 相关的」或「你的技术亮点是什么」——不要只说「我用了 Claude Code」，而是说「我设计了一套 Agent Harness 五层架构」。<br><br>
+          <strong style="color:#34d399">为什么有效</strong>：大部分候选人只会说「用 AI 写代码」，你能说出「身份→能力→门控→记忆→编排」这个框架，面试官立刻知道你不只是使用者，而是设计者。
+        </span>
+      </div>
+    </div>
+    <div class="story-scene">
+      <div class="scene-icon">⚠️</div>
+      <div>
+        <strong style="color:#f87171">何时收住</strong><br>
+        <span style="color:var(--text-secondary)">
+          面试官没追问细节就别展开到 5 层全讲。先抛一句「五层架构」，等他追问再展开。如果他只对某一层感兴趣，就专注那一层讲——不要自顾自把五层全倒出来。<br><br>
+          <strong style="color:var(--text-secondary)">记住</strong>：面试是对话，不是演讲。这五层是弹药库，不是演讲稿。
+        </span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="page-footer">来财出品 · Go 后端面试训练营 · 2026.05.27</div>
+</div>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(function(err) {
+    console.log("SW registration failed:", err);
+  });
+}
+</script>
+</body>
+</html>
